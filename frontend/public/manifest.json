@@ -1,0 +1,18 @@
+{
+  "short_name": "BigTeam CRM",
+  "name": "BigTeam Community Platform",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1d4ed8",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "categories": ["business", "productivity"]
+}
