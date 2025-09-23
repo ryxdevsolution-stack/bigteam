@@ -1,237 +1,507 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+# BigTeam Community Platform - Phase 1 CRM Solution
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phase 1: Community Engagement Platform - Project Scope & Proposal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Tailwind gray-50 */
-        }
-        .card {
-            background-color: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            transition: all 0.3s ease-in-out;
-            border: 1px solid #e5e7eb; /* Tailwind gray-200 */
-        }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .card-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #111827; /* Tailwind gray-900 */
-        }
-        .card-content {
-            padding: 1.5rem;
-        }
-        .timeline-item {
-            position: relative;
-            padding-left: 2.5rem;
-            padding-bottom: 2rem;
-            border-left: 2px solid #e5e7eb;
-        }
-        .timeline-item:last-child {
-            border-left: 2px solid transparent;
-            padding-bottom: 0;
-        }
-        .timeline-marker {
-            position: absolute;
-            left: -0.6rem;
-            top: 0.1rem;
-            width: 1.1rem;
-            height: 1.1rem;
-            background-color: #3b82f6; /* Tailwind blue-500 */
-            border-radius: 9999px;
-            border: 2px solid white;
-        }
-        .icon {
-            color: #3b82f6; /* Tailwind blue-500 */
-        }
-    </style>
-</head>
-<body>
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- Header -->
-        <div class="text-center mb-12">
-            <h1 class="text-4xl font-bold text-gray-800">Community Engagement Platform - Phase 1 Proposal</h1>
-            <p class="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">A detailed scope and investment overview for a bespoke content-driven platform with advanced administrative controls.</p>
-        </div>
+A complete community engagement platform built with modern technologies for scalable content management and user interaction.
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Column / Main Content -->
-            <div class="lg:col-span-2 space-y-8">
-                
-                <!-- Platform Features -->
-                <div class="card">
-                    <div class="card-header">
-                        <i data-lucide="layout-grid" class="icon"></i>
-                        <h2 class="card-title">Platform Features & Functionality</h2>
-                    </div>
-                    <div class="card-content divide-y divide-gray-200">
-                        <div class="py-4">
-                            <h3 class="font-semibold text-lg text-gray-800 mb-2">Administrator Control Panel</h3>
-                            <p class="text-gray-600">A powerful backend giving you complete control over all aspects of the platform.</p>
-                            <ul class="mt-4 space-y-3 text-gray-600">
-                                <li class="flex items-start"><i data-lucide="clapperboard" class="w-5 h-5 mr-3 mt-1 text-sky-500 flex-shrink-0"></i><span><strong>Rich Media Content Management:</strong> Upload, preview, and publish both <strong class="text-gray-700">video and image</strong> content as engaging posts for your community.</span></li>
-                                <li class="flex items-start"><i data-lucide="megaphone" class="w-5 h-5 mr-3 mt-1 text-sky-500 flex-shrink-0"></i><span><strong>Advanced Advertisement System:</strong> Manage and schedule video/image ads, including a swapping top banner and in-stream ads for videos.</span></li>
-                                <li class="flex items-start"><i data-lucide="user-plus" class="w-5 h-5 mr-3 mt-1 text-sky-500 flex-shrink-0"></i><span><strong>Direct User Creation:</strong> Manually add new users by creating an ID and password for them directly from the admin panel, ideal for controlled onboarding.</span></li>
-                                <li class="flex items-start"><i data-lucide="bar-chart-3" class="w-5 h-5 mr-3 mt-1 text-sky-500 flex-shrink-0"></i><span><strong>Analytics & Reporting:</strong> Monitor content performance, user engagement metrics (reactions, shares), and ad campaign effectiveness.</span></li>
-                            </ul>
-                        </div>
-                        <div class="pt-4">
-                            <h3 class="font-semibold text-lg text-gray-800 mb-2">Engaging User & Community Portal</h3>
-                             <p class="text-gray-600">A modern, media-rich frontend designed to captivate and engage your user base.</p>
-                             <ul class="mt-4 space-y-3 text-gray-600">
-                                <li class="flex items-start"><i data-lucide="film" class="w-5 h-5 mr-3 mt-1 text-teal-500 flex-shrink-0"></i><span><strong>Dynamic Video & Image Feed:</strong> Users can browse a central feed of content, with support for standard posts and a vertical, reels-style video viewing experience.</span></li>
-                                <li class="flex items-start"><i data-lucide="layout-list" class="w-5 h-5 mr-3 mt-1 text-teal-500 flex-shrink-0"></i><span><strong>Seamless Ad Integration:</strong> An auto-swapping ad banner at the top of the feed and in-stream video ads that play during content.</span></li>
-                                <li class="flex items-start"><i data-lucide="thumbs-up" class="w-5 h-5 mr-3 mt-1 text-teal-500 flex-shrink-0"></i><span><strong>Social Interaction Tools:</strong> Users can react to and share posts, fostering a sense of community and increasing content reach.</span></li>
-                                <li class="flex items-start"><i data-lucide="user-cog" class="w-5 h-5 mr-3 mt-1 text-teal-500 flex-shrink-0"></i><span><strong>Personalized Profile Management:</strong> A dedicated space for users to manage their personal information, view their activity, and set preferences.</span></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+## 🏗️ System Architecture
 
-                <!-- Implementation Timeline -->
-                <div class="card">
-                    <div class="card-header">
-                        <i data-lucide="calendar-days" class="icon"></i>
-                        <h2 class="card-title">12-Week Project Roadmap</h2>
-                    </div>
-                    <div class="card-content">
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 1-2: Discovery & Planning</h4>
-                            <p class="text-gray-500 text-sm">Detailed requirement analysis, system architecture design, and database schema for media content.</p>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 3-4: Foundation & Backend Setup</h4>
-                            <p class="text-gray-500 text-sm">Core API development for video/image uploads, authentication, and user management.</p>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 5-6: Admin Panel Development</h4>
-                            <p class="text-gray-500 text-sm">Building interfaces for content publishing, ad scheduling, and direct user creation.</p>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 7-8: User Portal Frontend Development</h4>
-                            <p class="text-gray-500 text-sm">Creating the media feed, reels viewer, profile pages, and integrating ad displays.</p>
-                        </div>
-                         <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 9-10: Feature Integration & Refinement</h4>
-                            <p class="text-gray-500 text-sm">Connecting all APIs with the frontend, implementing reaction/share logic, and analytics.</p>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <h4 class="font-semibold text-gray-700">Weeks 11-12: Testing, Deployment & Handover</h4>
-                            <p class="text-gray-500 text-sm">User acceptance testing, bug fixing, performance optimization, and final production deployment.</p>
-                        </div>
-                    </div>
-                </div>
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Backend API   │    │   Database      │
+│   React + TS    │◄──►│  Python Flask   │◄──►│   Supabase      │
+│   Admin Panel   │    │   REST API      │    │   PostgreSQL    │
+│   User Portal   │    │   Auth System   │    │   File Storage  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │              ┌─────────────────┐              │
+         │              │  Cache Layer    │              │
+         └──────────────│     Redis       │──────────────┘
+                        │   Session/Data  │
+                        └─────────────────┘
+                                 │
+                        ┌─────────────────┐
+                        │  Infrastructure │
+                        │ Docker+K8s+CDN  │
+                        └─────────────────┘
+```
 
-                <!-- System Workflow -->
-                <div class="card">
-                    <div class="card-header">
-                         <i data-lucide="network" class="icon"></i>
-                         <h2 class="card-title">System Workflow & Architecture</h2>
-                    </div>
-                    <div class="card-content">
-                        <p class="text-gray-600 mb-4">This diagram illustrates the flow of data and user interactions, from initial access to database operations, for both Admin and User roles.</p>
-                        <img src="https://storage.googleapis.com/gemini-prod/v1/d4b/f51/image_3ff04a.png" alt="System Workflow Diagram" class="rounded-lg border border-gray-200">
-                    </div>
-                </div>
-            </div>
+## 🎯 Core Features
 
-            <!-- Right Column / Financials -->
-            <div class="space-y-8">
-                
-                <!-- Detailed Investment Breakdown -->
-                <div class="card">
-                    <div class="card-header">
-                        <i data-lucide="piggy-bank" class="icon"></i>
-                        <h2 class="card-title">Detailed Investment Breakdown</h2>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="font-semibold text-gray-700 mb-3">Phase 1 Development Cost</h3>
-                        <p class="text-sm text-gray-500 mb-3">Realistic pricing for the Coimbatore market, reflecting the complexity of video handling and custom features.</p>
-                        <div class="space-y-2 text-gray-600">
-                            <div class="flex justify-between"><span>Frontend Development (UI/UX)</span> <span class="font-medium">₹30,000 - ₹35,000</span></div>
-                            <div class="flex justify-between"><span>Backend & API Development</span> <span class="font-medium">₹35,000 - ₹40,000</span></div>
-                            <div class="flex justify-between"><span>Database & Storage Architecture</span> <span class="font-medium">₹10,000 - ₹12,000</span></div>
-                            <div class="flex justify-between"><span>Testing, Deployment & CDN Setup</span> <span class="font-medium">₹5,000 - ₹8,000</span></div>
-                        </div>
-                        <div class="border-t mt-4 pt-4">
-                            <div class="flex justify-between font-bold text-gray-800">
-                                <span>Total Phase 1 Development</span>
-                                <span class="text-blue-600 text-lg">₹98,000</span>
-                            </div>
-                             <p class="text-right text-sm text-gray-500">(Includes buffer for revisions)</p>
-                        </div>
-                        
-                        <h3 class="font-semibold text-gray-700 mb-3 mt-6">Monthly Operating Costs</h3>
-                         <div class="space-y-2 text-gray-600">
-                            <div class="font-medium text-gray-700">Hosting & Infrastructure:</div>
-                            <div class="flex justify-between pl-4"><span>Web Hosting (VPS)</span> <span class="font-medium">₹1,500 - ₹2,500</span></div>
-                            <div class="flex justify-between pl-4"><span>Database Hosting</span> <span class="font-medium">₹800 - ₹1,200</span></div>
-                            <div class="flex justify-between pl-4"><span>Video/Image Storage & CDN</span> <span class="font-medium">₹1,200 - ₹2,000</span></div>
-                            <div class="flex justify-between pl-4"><span>Domain & SSL</span> <span class="font-medium">₹200 - ₹300</span></div>
-                            <div class="font-medium text-gray-700 mt-2">Maintenance & Support:</div>
-                            <div class="flex justify-between pl-4"><span>Technical Maintenance</span> <span class="font-medium">₹1,500 - ₹2,000</span></div>
-                            <div class="flex justify-between pl-4"><span>Support (Admin & User)</span> <span class="font-medium">₹1,800 - ₹2,700</span></div>
-                        </div>
-                        <div class="border-t mt-4 pt-4">
-                            <div class="flex justify-between font-bold text-gray-800">
-                                <span>Total Monthly Cost</span>
-                                <span>₹7,000 - ₹10,700</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                 <!-- Payment Structure -->
-                <div class="card">
-                    <div class="card-header">
-                        <i data-lucide="landmark" class="icon"></i>
-                        <h2 class="card-title">Payment Structure</h2>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="font-semibold text-gray-700 mb-3">Development Milestones</h3>
-                        <ul class="space-y-3 text-gray-600">
-                            <li class="flex justify-between items-center"><span><strong class="text-blue-600">25%</strong> Advance (Initiation)</span> <span class="font-medium">₹24,500</span></li>
-                            <li class="flex justify-between items-center"><span><strong class="text-blue-600">50%</strong> Milestone (Week 6)</span> <span class="font-medium">₹49,000</span></li>
-                            <li class="flex justify-between items-center"><span><strong class="text-blue-600">25%</strong> Final (Deployment)</span> <span class="font-medium">₹24,500</span></li>
-                        </ul>
-                        <div class="border-t pt-4 mt-4">
-                            <h3 class="font-semibold text-gray-700 mb-2">Monthly Billing</h3>
-                            <p class="text-gray-600 text-sm">Maintenance and support are billed monthly, while hosting costs are billed quarterly for convenience.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+### Admin Panel Features
+- **User Management**: Create users with credentials, manage access levels
+- **Content Management**: Upload/publish videos, images, and advertisements
+- **Advertisement System**: Schedule ads, manage banner rotations
+- **Analytics Dashboard**: Track user engagement, content performance
+- **Real-time Monitoring**: User activity, system health metrics
 
+### User Portal Features
+- **Media Feed**: Instagram/TikTok-style content browsing
+- **Reels/Shorts Player**: Vertical video viewing experience
+- **Social Interactions**: Like, react, and share posts
+- **Profile Management**: Personal settings and activity history
+- **Responsive Design**: Mobile-first approach
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **State Management**: Redux Toolkit + RTK Query
+- **Styling**: Tailwind CSS + Framer Motion
+- **Build Tool**: Vite
+- **Testing**: Vitest + React Testing Library
+
+### Backend
+- **API Framework**: Python Flask + Flask-RESTful
+- **Authentication**: JWT + Flask-JWT-Extended
+- **Database ORM**: SQLAlchemy
+- **File Upload**: Flask-Upload + Multipart handling
+- **API Documentation**: Flask-RESTX (Swagger)
+
+### Database & Storage
+- **Primary Database**: Supabase (PostgreSQL)
+- **File Storage**: Supabase Storage + CDN
+- **Cache**: Redis (Session + Data caching)
+- **Search**: PostgreSQL Full-Text Search
+
+### Infrastructure
+- **Containerization**: Docker + Docker Compose
+- **Orchestration**: Kubernetes
+- **CI/CD**: GitHub Actions
+- **Monitoring**: Prometheus + Grafana
+- **Load Balancer**: NGINX
+
+## 📁 Project Structure
+
+```
+bigteam-platform/
+├── frontend/                    # React TypeScript Frontend
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   │   ├── admin/         # Admin-specific components
+│   │   │   ├── user/          # User portal components
+│   │   │   └── shared/        # Common components
+│   │   ├── pages/             # Page components
+│   │   │   ├── admin/         # Admin dashboard pages
+│   │   │   └── user/          # User portal pages
+│   │   ├── hooks/             # Custom React hooks
+│   │   ├── store/             # Redux store configuration
+│   │   ├── services/          # API service layer
+│   │   ├── utils/             # Utility functions
+│   │   └── types/             # TypeScript type definitions
+│   ├── public/                # Static assets
+│   └── package.json
+├── backend/                    # Python Flask Backend
+│   ├── app/
+│   │   ├── api/               # API route handlers
+│   │   │   ├── admin/         # Admin endpoints
+│   │   │   ├── user/          # User endpoints
+│   │   │   └── auth/          # Authentication endpoints
+│   │   ├── models/            # Database models
+│   │   ├── services/          # Business logic layer
+│   │   ├── utils/             # Utility functions
+│   │   ├── middleware/        # Custom middleware
+│   │   └── config/            # Configuration files
+│   ├── migrations/            # Database migrations
+│   ├── tests/                 # Backend tests
+│   └── requirements.txt
+├── infrastructure/             # DevOps configuration
+│   ├── docker/                # Docker configurations
+│   ├── kubernetes/            # K8s manifests
+│   ├── nginx/                 # Load balancer config
+│   └── monitoring/            # Prometheus/Grafana setup
+├── docs/                      # Documentation
+└── scripts/                   # Deployment scripts
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Python 3.11+
+- Docker & Docker Compose
+- Supabase Account
+
+### Environment Setup
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/yourorg/bigteam-platform.git
+cd bigteam-platform
+```
+
+2. **Backend Setup**
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+3. **Frontend Setup**
+```bash
+cd frontend
+npm install
+```
+
+4. **Environment Variables**
+
+Create `.env` files:
+
+**Backend `.env`:**
+```env
+FLASK_APP=app
+FLASK_ENV=development
+DATABASE_URL=postgresql://user:password@localhost:5432/bigteam
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-key
+JWT_SECRET_KEY=your-secret-key
+REDIS_URL=redis://localhost:6379
+UPLOAD_FOLDER=uploads
+MAX_CONTENT_LENGTH=100MB
+```
+
+**Frontend `.env`:**
+```env
+VITE_API_BASE_URL=http://localhost:5000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### Database Schema
+
+```sql
+-- Users table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'user',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Posts table
+CREATE TABLE posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(200) NOT NULL,
+    content TEXT,
+    media_type VARCHAR(20) NOT NULL, -- 'video', 'image'
+    media_url VARCHAR(500) NOT NULL,
+    thumbnail_url VARCHAR(500),
+    created_by UUID REFERENCES users(id),
+    is_published BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Advertisements table
+CREATE TABLE advertisements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(200) NOT NULL,
+    media_type VARCHAR(20) NOT NULL,
+    media_url VARCHAR(500) NOT NULL,
+    ad_type VARCHAR(20) NOT NULL, -- 'banner', 'in_stream'
+    is_active BOOLEAN DEFAULT true,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- User interactions table
+CREATE TABLE user_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    post_id UUID REFERENCES posts(id),
+    interaction_type VARCHAR(20) NOT NULL, -- 'like', 'share', 'view'
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## 🔧 Development
+
+### Running in Development Mode
+
+1. **Start Backend**
+```bash
+cd backend
+python app.py
+# Backend runs on http://localhost:5000
+```
+
+2. **Start Frontend**
+```bash
+cd frontend
+npm run dev
+# Frontend runs on http://localhost:3000
+```
+
+3. **Start Redis Cache**
+```bash
+docker run -d -p 6379:6379 redis:alpine
+```
+
+### API Endpoints
+
+#### Authentication
+```
+POST /api/auth/login          # User login
+POST /api/auth/logout         # User logout
+POST /api/auth/refresh        # Refresh JWT token
+```
+
+#### Admin Endpoints
+```
+POST /api/admin/users         # Create new user
+GET  /api/admin/users         # List all users
+PUT  /api/admin/users/:id     # Update user
+DELETE /api/admin/users/:id   # Delete user
+
+POST /api/admin/posts         # Create post
+GET  /api/admin/posts         # List all posts
+PUT  /api/admin/posts/:id     # Update post
+DELETE /api/admin/posts/:id   # Delete post
+
+POST /api/admin/ads           # Create advertisement
+GET  /api/admin/ads           # List all ads
+PUT  /api/admin/ads/:id       # Update ad
+```
+
+#### User Endpoints
+```
+GET  /api/posts               # Get feed posts
+GET  /api/posts/:id           # Get specific post
+POST /api/posts/:id/interact  # Like/share post
+GET  /api/user/profile        # Get user profile
+PUT  /api/user/profile        # Update profile
+```
+
+## 🐳 Docker Deployment
+
+### Development with Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://backend:5000
+  
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/bigteam
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+  
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: bigteam
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
+```
+
+Run with:
+```bash
+docker-compose up -d
+```
+
+## ☸️ Kubernetes Deployment
+
+### Namespace and ConfigMap
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bigteam
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: bigteam
+data:
+  DATABASE_URL: "postgresql://user:pass@postgres:5432/bigteam"
+  REDIS_URL: "redis://redis:6379"
+```
+
+### Backend Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: bigteam
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: bigteam/backend:latest
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: app-config
+```
+
+### Frontend Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: bigteam
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: bigteam/frontend:latest
+        ports:
+        - containerPort: 3000
+```
+
+Deploy to Kubernetes:
+```bash
+kubectl apply -f infrastructure/kubernetes/
+```
+
+## 📊 Monitoring & Analytics
+
+### Performance Metrics
+- **Response Time**: API endpoint performance
+- **User Engagement**: Likes, shares, view duration
+- **System Health**: CPU, memory, disk usage
+- **Content Analytics**: Popular posts, user activity patterns
+
+### Caching Strategy
+- **Redis Cache**: Session data, frequently accessed posts
+- **CDN**: Static assets, media files
+- **Database Query Optimization**: Indexing, query caching
+
+## 🔐 Security Features
+
+- **JWT Authentication**: Secure token-based auth
+- **Role-Based Access Control**: Admin vs User permissions
+- **Input Validation**: SQL injection prevention
+- **File Upload Security**: Type validation, size limits
+- **CORS Configuration**: Cross-origin request handling
+- **Rate Limiting**: API abuse prevention
+
+## 📈 Scalability Considerations
+
+- **Horizontal Scaling**: Multiple backend instances
+- **Database Optimization**: Connection pooling, read replicas
+- **Media Optimization**: Video transcoding, image compression
+- **Cache Layers**: Redis for session and data caching
+- **Load Balancing**: NGINX for traffic distribution
+
+## 🧪 Testing
+
+### Backend Testing
+```bash
+cd backend
+pytest tests/
+```
+
+### Frontend Testing
+```bash
+cd frontend
+npm test
+```
+
+### E2E Testing
+```bash
+npm run test:e2e
+```
+
+## 📦 Production Deployment
+
+1. **Build Images**
+```bash
+docker build -t bigteam/backend:v1.0 ./backend
+docker build -t bigteam/frontend:v1.0 ./frontend
+```
+
+2. **Deploy to Kubernetes**
+```bash
+kubectl apply -f infrastructure/kubernetes/production/
+```
+
+3. **Configure Domain & SSL**
+```bash
+kubectl apply -f infrastructure/kubernetes/ingress.yaml
+```
+
+## 📋 Development Roadmap
+
+### Phase 1 (Current)
+- ✅ User authentication system
+- ✅ Admin panel for user management
+- ✅ Content upload and management
+- ✅ Basic user feed with interactions
+- ✅ Advertisement system
+
+### Phase 2 (Future)
+- 🔄 Advanced analytics dashboard
+- 🔄 Real-time notifications
+- 🔄 Mobile app (React Native)
+- 🔄 Advanced content recommendation
+- 🔄 Multi-language support
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+For support and questions:
+- Email: support@bigteam.com
+- Documentation: [docs.bigteam.com](https://docs.bigteam.com)
+- Issues: GitHub Issues tab
+
+---
+
+**BigTeam Platform** - Building communities through engaging content experiences.
