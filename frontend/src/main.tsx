@@ -5,6 +5,8 @@ import { Provider } from 'react-redux'
 import { store } from './store/store'
 import App from './App'
 import './styles/index.css'
+import './styles/dashboard.css'
+import './styles/highcharts.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

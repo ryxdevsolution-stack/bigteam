@@ -10,6 +10,35 @@
   body {
     @apply antialiased;
   }
+
+  /* Dark mode base styles */
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Custom scrollbar for dark theme */
+  .dark::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark::-webkit-scrollbar-track {
+    @apply bg-dark-900;
+  }
+
+  .dark::-webkit-scrollbar-thumb {
+    @apply bg-dark-700 rounded-full;
+  }
+
+  .dark::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-600;
+  }
+
+  /* Firefox scrollbar */
+  .dark {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 #111827;
+  }
 }
 
 @layer components {
@@ -27,6 +56,29 @@
 
   .input-field {
     @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+
+  /* Glass morphism components */
+  .glass-card {
+    @apply bg-glass-light backdrop-blur-xl border border-dark-800 rounded-2xl;
+  }
+
+  .glass-button {
+    @apply bg-glass-medium backdrop-blur-sm border border-dark-700 hover:bg-glass-light transition-all duration-200;
+  }
+
+  /* Neon effects */
+  .neon-border-green {
+    @apply border border-accent-green/50 shadow-neon-green;
+  }
+
+  .neon-border-yellow {
+    @apply border border-accent-yellow/50 shadow-neon-yellow;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent-green to-accent-blue bg-clip-text text-transparent;
   }
 }
 

@@ -1,0 +1,110 @@
+/* Dashboard specific styles for z-index management */
+
+/* Z-index layers */
+.z-base { z-index: 0; }
+.z-dropdown { z-index: 40; }
+.z-sticky { z-index: 30; }
+.z-overlay { z-index: 50; }
+.z-modal { z-index: 60; }
+.z-notification { z-index: 70; }
+.z-tooltip { z-index: 80; }
+.z-max { z-index: 9999; }
+
+/* Fix for overlapping elements */
+.sidebar-container {
+  position: relative;
+  z-index: 20;
+}
+
+.topbar-container {
+  position: relative;
+  z-index: 25;
+}
+
+.dropdown-menu {
+  position: absolute;
+  z-index: 9999 !important;
+}
+
+/* Light mode styles */
+.light body {
+  @apply bg-gray-50;
+}
+
+.light .bg-gradient-dark {
+  background: linear-gradient(180deg, #F9FAFB 0%, #E5E7EB 100%);
+}
+
+.light .bg-dark-900\/50,
+.light .bg-dark-900\/95,
+.light .bg-dark-900 {
+  @apply bg-white;
+}
+
+.light .bg-dark-800 {
+  @apply bg-gray-100;
+}
+
+.light .border-dark-800 {
+  @apply border-gray-200;
+}
+
+.light .border-dark-700 {
+  @apply border-gray-300;
+}
+
+.light .text-dark-400 {
+  @apply text-gray-600;
+}
+
+.light .text-dark-300 {
+  @apply text-gray-700;
+}
+
+.light .text-dark-200 {
+  @apply text-gray-800;
+}
+
+.light .text-white {
+  @apply text-gray-900;
+}
+
+.light .bg-glass-light {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.light .bg-glass-medium {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.light .hover\:bg-glass-light:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.light .hover\:bg-glass-medium:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Ensure dropdowns are always on top */
+.dropdown-container {
+  position: relative;
+}
+
+.dropdown-content {
+  position: absolute;
+  z-index: 9999;
+  isolation: isolate;
+}
+
+/* Fix for chart tooltips */
+.recharts-tooltip-wrapper {
+  z-index: 1000 !important;
+}
+
+/* Mobile menu overlay */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background-color: rgba(0, 0, 0, 0.5);
+}

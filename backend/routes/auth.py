@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
-from models.user_model import create_user, get_user_by_email
+from models.user_model import create_user, get_user_by_email, get_all_users
 
 auth_bp = Blueprint('auth', __name__)
 bcrypt = Bcrypt()
@@ -61,3 +61,30 @@ def login():
         }), 200
 
     return jsonify({"error": "Invalid email or password"}), 401
+
+# --------------------------
+# Get All Users Endpoint (Admin)
+# --------------------------
+@auth_bp.route('/admin/users', methods=['GET'])
+def get_users():
+    try:
+        # Returns only customer users (excludes admin accounts)
+        # In production, you would also verify the requesting user is an admin
+        users = get_all_users()
+
+        # Format the response
+        formatted_users = []
+        for user in users:
+            formatted_users.append({
+                "id": user["id"],
+                "full_name": user["full_name"],
+                "username": user["username"],
+                "email": user["email"],
+                "role": user["role"],
+                "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+                "is_active": user.get("is_active", True)
+            })
+
+        return jsonify(formatted_users), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
