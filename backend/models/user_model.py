@@ -1,7 +1,7 @@
 from utils.db import get_db_connection
 from psycopg2.extras import RealDictCursor
 
-def create_user(full_name, email, username, password_hash, role='customer', referred_by=None):
+def create_user(full_name, email, username, password_hash, role='customer'):
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -21,16 +21,17 @@ def create_user(full_name, email, username, password_hash, role='customer', refe
 
     # Insert new user
     cur.execute("""
-        INSERT INTO users (full_name, email, username, password_hash, role, referred_by)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO users (full_name, username, email, password_hash, role)
+        VALUES (%s, %s, %s, %s, %s)
         RETURNING id;
-    """, (full_name, email, username, password_hash, role, referred_by))
+    """, (full_name, username, email, password_hash, role))
 
     user_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
     conn.close()
     return user_id, None
+
 
 
 def get_user_by_email(email):
