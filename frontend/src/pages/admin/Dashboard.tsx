@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MetricCard from '../../components/dashboard/Cards/MetricCard';
 import ChartCard from '../../components/dashboard/Cards/ChartCard';
 import AreaChart from '../../components/dashboard/Charts/AreaChart';
@@ -13,55 +13,93 @@ import {
   Eye,
   Heart,
   Share2,
-  MessageCircle
+  MessageCircle,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import api from '../../services/api';
 
 const Dashboard: React.FC = () => {
-  // Sample data - replace with real API data
-  const areaChartData = Array.from({ length: 30 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (29 - i));
-    return {
-      date: date.toISOString(),
-      users: Math.floor(Math.random() * 5000) + 20000,
-      engagement: Math.floor(Math.random() * 3000) + 15000,
-      posts: Math.floor(Math.random() * 1000) + 5000,
-      revenue: Math.floor(Math.random() * 2000) + 8000,
-    };
+  const [loading, setLoading] = useState(true);
+  const [areaChartData, setAreaChartData] = useState<any[]>([]);
+  const [barChartData, setBarChartData] = useState<any[]>([]);
+  const [pieChartData, setPieChartData] = useState<any[]>([]);
+  const [engagementBarData, setEngagementBarData] = useState<any[]>([]);
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    totalUsers: 0,
+    totalPosts: 0,
+    engagementRate: 0,
+    adRevenue: 0,
+    totalViews: 0,
+    totalLikes: 0,
+    totalShares: 0,
+    totalComments: 0
   });
 
-  const barChartData = [
-    { name: 'Videos', value: 234879, color: '#f97316' },
-    { name: 'Images', value: 142356, color: '#f7931a' },
-    { name: 'Stories', value: 98234, color: '#fbbf24' },
-    { name: 'Reels', value: 187654, color: '#f59e0b' },
-    { name: 'Live', value: 54321, color: '#fb923c' },
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const pieChartData = [
-    { name: 'Mobile', value: 45234, color: '#f97316' },
-    { name: 'Desktop', value: 32156, color: '#f7931a' },
-    { name: 'Tablet', value: 12890, color: '#fbbf24' },
-    { name: 'Smart TV', value: 8720, color: '#f59e0b' },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
 
-  const engagementBarData = [
-    { name: 'Mon', value: 4500, color: '#f97316' },
-    { name: 'Tue', value: 5200, color: '#f97316' },
-    { name: 'Wed', value: 4800, color: '#f7931a' },
-    { name: 'Thu', value: 6100, color: '#f7931a' },
-    { name: 'Fri', value: 7200, color: '#fbbf24' },
-    { name: 'Sat', value: 8500, color: '#f59e0b' },
-    { name: 'Sun', value: 9200, color: '#f59e0b' },
-  ];
+      // Fetch posts for content metrics
+      const postsResponse = await api.get('/api/posts');
+      const posts = postsResponse.data || [];
+
+      // Calculate metrics from real data
+      const videoCount = posts.filter((p: any) => p.media_type === 'video').length;
+      const imageCount = posts.filter((p: any) => p.media_type === 'image').length;
+
+      // Set real data or empty arrays
+      setBarChartData(
+        posts.length > 0
+          ? [
+              { name: 'Videos', value: videoCount, color: '#f97316' },
+              { name: 'Images', value: imageCount, color: '#f7931a' }
+            ]
+          : []
+      );
+
+      // Empty data for charts that need API endpoints
+      setAreaChartData([]);
+      setPieChartData([]);
+      setEngagementBarData([]);
+      setTableData([]);
+
+      // Set metrics from real data
+      setMetrics({
+        totalUsers: 0, // Need users API endpoint
+        totalPosts: posts.length,
+        engagementRate: 0,
+        adRevenue: 0,
+        totalViews: posts.reduce((acc: number, p: any) => acc + (p.views_count || 0), 0),
+        totalLikes: posts.reduce((acc: number, p: any) => acc + (p.likes_count || 0), 0),
+        totalShares: posts.reduce((acc: number, p: any) => acc + (p.shares_count || 0), 0),
+        totalComments: 0
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      // Set all to empty on error
+      setBarChartData([]);
+      setAreaChartData([]);
+      setPieChartData([]);
+      setEngagementBarData([]);
+      setTableData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tableColumns = [
     {
       key: 'date',
       label: 'Date',
       sortable: true,
-      render: (value: string) => format(new Date(value), 'MMM dd, yyyy')
+      render: (value: string) => value ? format(new Date(value), 'MMM dd, yyyy') : 'N/A'
     },
     { key: 'user', label: 'User', sortable: true },
     { key: 'content', label: 'Content Type' },
@@ -70,7 +108,7 @@ const Dashboard: React.FC = () => {
       label: 'Engagement',
       render: (value: number) => (
         <span className="text-accent-orange dark:text-accent-gold font-medium">
-          {value.toLocaleString()}
+          {value ? value.toLocaleString() : 0}
         </span>
       )
     },
@@ -79,7 +117,7 @@ const Dashboard: React.FC = () => {
       label: 'Revenue',
       render: (value: number) => (
         <span className="text-accent-bitcoin dark:text-accent-gold">
-          ${value.toFixed(2)}
+          ${value ? value.toFixed(2) : '0.00'}
         </span>
       )
     },
@@ -92,22 +130,22 @@ const Dashboard: React.FC = () => {
             ? 'bg-accent-bitcoin/20 text-accent-orange dark:text-accent-gold'
             : 'bg-dark-200 dark:bg-dark-700 text-dark-600 dark:text-dark-400'
         }`}>
-          {value}
+          {value || 'Inactive'}
         </span>
       )
     }
   ];
 
-  const tableData = Array.from({ length: 50 }, (_, i) => ({
-    date: new Date(Date.now() - i * 86400000).toISOString(),
-    user: `User${Math.floor(Math.random() * 1000)}`,
-    content: ['Video', 'Image', 'Story', 'Reel'][Math.floor(Math.random() * 4)],
-    engagement: Math.floor(Math.random() * 10000),
-    revenue: Math.random() * 1000,
-    status: Math.random() > 0.3 ? 'Active' : 'Inactive'
-  }));
-
-  const sparklineData = Array.from({ length: 10 }, () => Math.floor(Math.random() * 100));
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-accent-bitcoin" />
+          <p className="text-dark-600 dark:text-dark-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -121,40 +159,40 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <MetricCard
           title="Total Users"
-          value={234879}
-          change={24.78}
+          value={metrics.totalUsers}
+          change={0}
           trend="up"
           icon={<Users className="w-5 h-5 text-accent-bitcoin" />}
-          sparkline={sparklineData}
+          sparkline={[]}
           delay={0}
         />
         <MetricCard
           title="Total Posts"
-          value={142356}
-          change={12.5}
+          value={metrics.totalPosts}
+          change={0}
           trend="up"
           icon={<FileVideo className="w-5 h-5 text-accent-orange" />}
-          sparkline={sparklineData.map(v => v * 0.8)}
+          sparkline={[]}
           delay={0.1}
         />
         <MetricCard
           title="Engagement Rate"
-          value={68.5}
+          value={metrics.engagementRate}
           suffix="%"
-          change={-5.2}
-          trend="down"
+          change={0}
+          trend="up"
           icon={<TrendingUp className="w-5 h-5 text-accent-gold" />}
-          sparkline={sparklineData.map(v => v * 1.2)}
+          sparkline={[]}
           delay={0.2}
         />
         <MetricCard
           title="Ad Revenue"
-          value={54879}
+          value={metrics.adRevenue}
           prefix="$"
-          change={32.1}
+          change={0}
           trend="up"
           icon={<DollarSign className="w-5 h-5 text-accent-amber" />}
-          sparkline={sparklineData.map(v => v * 0.6)}
+          sparkline={[]}
           delay={0.3}
         />
       </div>
@@ -167,15 +205,21 @@ const Dashboard: React.FC = () => {
           className="lg:col-span-2"
           delay={0.4}
         >
-          <AreaChart
-            data={areaChartData}
-            dataKeys={[
-              { key: 'users', color: '#f7931a', name: 'Users' },
-              { key: 'engagement', color: '#f97316', name: 'Engagement' },
-            ]}
-            height={300}
-            showGrid={false}
-          />
+          {areaChartData.length > 0 ? (
+            <AreaChart
+              data={areaChartData}
+              dataKeys={[
+                { key: 'users', color: '#f7931a', name: 'Users' },
+                { key: 'engagement', color: '#f97316', name: 'Engagement' },
+              ]}
+              height={300}
+              showGrid={false}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-dark-500">
+              No data available
+            </div>
+          )}
         </ChartCard>
 
         <ChartCard
@@ -183,11 +227,17 @@ const Dashboard: React.FC = () => {
           subtitle="By device type"
           delay={0.5}
         >
-          <PieChart
-            data={pieChartData}
-            height={300}
-            donut={true}
-          />
+          {pieChartData.length > 0 ? (
+            <PieChart
+              data={pieChartData}
+              height={300}
+              donut={true}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-dark-500">
+              No data available
+            </div>
+          )}
         </ChartCard>
       </div>
 
@@ -198,11 +248,17 @@ const Dashboard: React.FC = () => {
           subtitle="Total content by type"
           delay={0.6}
         >
-          <BarChart
-            data={barChartData}
-            height={250}
-            showGrid={false}
-          />
+          {barChartData.length > 0 ? (
+            <BarChart
+              data={barChartData}
+              height={250}
+              showGrid={false}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-dark-500">
+              No content available
+            </div>
+          )}
         </ChartCard>
 
         <ChartCard
@@ -210,12 +266,18 @@ const Dashboard: React.FC = () => {
           subtitle="User interactions this week"
           delay={0.7}
         >
-          <BarChart
-            data={engagementBarData}
-            height={250}
-            gradient={true}
-            showGrid={false}
-          />
+          {engagementBarData.length > 0 ? (
+            <BarChart
+              data={engagementBarData}
+              height={250}
+              gradient={true}
+              showGrid={false}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-dark-500">
+              No engagement data available
+            </div>
+          )}
         </ChartCard>
       </div>
 
@@ -228,7 +290,9 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Views</p>
-              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">1.2M</p>
+              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
+                {metrics.totalViews > 0 ? metrics.totalViews.toLocaleString() : '0'}
+              </p>
             </div>
           </div>
         </div>
@@ -239,7 +303,9 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Likes</p>
-              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">542K</p>
+              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
+                {metrics.totalLikes > 0 ? metrics.totalLikes.toLocaleString() : '0'}
+              </p>
             </div>
           </div>
         </div>
@@ -250,7 +316,9 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Shares</p>
-              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">234K</p>
+              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
+                {metrics.totalShares > 0 ? metrics.totalShares.toLocaleString() : '0'}
+              </p>
             </div>
           </div>
         </div>
@@ -261,7 +329,9 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Comments</p>
-              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">89.2K</p>
+              <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
+                {metrics.totalComments > 0 ? metrics.totalComments.toLocaleString() : '0'}
+              </p>
             </div>
           </div>
         </div>

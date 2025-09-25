@@ -63,6 +63,39 @@ def login():
     return jsonify({"error": "Invalid email or password"}), 401
 
 # --------------------------
+# Check if Email Exists Endpoint
+# --------------------------
+@auth_bp.route('/check-email', methods=['POST'])
+def check_email():
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user = get_user_by_email(email)
+    exists = user is not None
+
+    return jsonify({'exists': exists}), 200
+
+# --------------------------
+# Check if Username Exists Endpoint
+# --------------------------
+@auth_bp.route('/check-username', methods=['POST'])
+def check_username():
+    data = request.get_json()
+    username = data.get('username')
+
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
+    from models.user_model import get_user_by_username
+    user = get_user_by_username(username)
+    exists = user is not None
+
+    return jsonify({'exists': exists}), 200
+
+# --------------------------
 # Get All Users Endpoint (Admin)
 # --------------------------
 @auth_bp.route('/admin/users', methods=['GET'])

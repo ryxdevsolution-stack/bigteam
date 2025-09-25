@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   User,
@@ -12,7 +12,7 @@ import {
   Check,
   X
 } from 'lucide-react'
-import { CreateUserPayload } from '../../../services/userService'
+import { CreateUserPayload, userService } from '../../../services/userService'
 
 interface CreateUserFormProps {
   onSubmit: (data: CreateUserPayload) => Promise<any>
@@ -41,6 +41,8 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [checkingUsername, setCheckingUsername] = useState(false)
 
   const passwordStrength = {
     hasMinLength: formData.password.length >= 8,
@@ -51,6 +53,67 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
   }
 
   const passwordStrengthScore = Object.values(passwordStrength).filter(Boolean).length
+
+  // Debounce function for async validation
+  useEffect(() => {
+    if (formData.email && touched.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) === false) {
+      const timer = setTimeout(async () => {
+        setCheckingEmail(true)
+        try {
+          const exists = await userService.checkEmailExists(formData.email)
+          if (exists) {
+            setValidationErrors(prev => ({
+              ...prev,
+              email: 'Email already taken'
+            }))
+          } else {
+            setValidationErrors(prev => {
+              const newErrors = { ...prev }
+              if (newErrors.email === 'Email already taken') {
+                delete newErrors.email
+              }
+              return newErrors
+            })
+          }
+        } catch (error) {
+          console.error('Error checking email:', error)
+        } finally {
+          setCheckingEmail(false)
+        }
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [formData.email, touched.email])
+
+  useEffect(() => {
+    if (formData.username && touched.username && formData.username.length >= 3) {
+      const timer = setTimeout(async () => {
+        setCheckingUsername(true)
+        try {
+          const exists = await userService.checkUsernameExists(formData.username)
+          if (exists) {
+            setValidationErrors(prev => ({
+              ...prev,
+              username: 'Username already taken'
+            }))
+          } else {
+            setValidationErrors(prev => {
+              const newErrors = { ...prev }
+              if (newErrors.username === 'Username already taken') {
+                delete newErrors.username
+              }
+              return newErrors
+            })
+          }
+        } catch (error) {
+          console.error('Error checking username:', error)
+        } finally {
+          setCheckingUsername(false)
+        }
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [formData.username, touched.username])
 
   const validateField = (name: string, value: string) => {
     const errors: Record<string, string> = {}
@@ -70,6 +133,10 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
           errors.email = 'Please enter a valid email address'
         }
+        // Don't override "Email already taken" error
+        if (validationErrors.email === 'Email already taken' && !errors.email) {
+          return true
+        }
         break
 
       case 'username':
@@ -79,6 +146,10 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
           errors.username = 'Username must be at least 3 characters'
         } else if (!/^[a-zA-Z0-9]+$/.test(value)) {
           errors.username = 'Username can only contain letters and numbers'
+        }
+        // Don't override "Username already taken" error
+        if (validationErrors.username === 'Username already taken' && !errors.username) {
+          return true
         }
         break
 
@@ -235,6 +306,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 placeholder="Enter full name"
+                autoComplete="off"
                 className={`w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   validationErrors.full_name && touched.full_name
                     ? 'border-red-500 focus:ring-red-500'
@@ -262,16 +334,25 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 placeholder="user@example.com"
-                className={`w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                autoComplete="off"
+                className={`w-full pl-10 pr-10 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   validationErrors.email && touched.email
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-light-300 dark:border-dark-600 focus:ring-accent-bitcoin'
                 }`}
                 disabled={loading}
               />
+              {checkingEmail && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-accent-bitcoin border-t-transparent rounded-full"></div>
+                </div>
+              )}
             </div>
             {validationErrors.email && touched.email && (
-              <p className="mt-1 text-xs text-red-500">{validationErrors.email}</p>
+              <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                {validationErrors.email === 'Email already taken' && <X className="w-3 h-3" />}
+                {validationErrors.email}
+              </p>
             )}
           </div>
 
@@ -289,16 +370,25 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 placeholder="Enter username"
-                className={`w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                autoComplete="off"
+                className={`w-full pl-10 pr-10 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   validationErrors.username && touched.username
                     ? 'border-red-500 focus:ring-red-500'
                     : 'border-light-300 dark:border-dark-600 focus:ring-accent-bitcoin'
                 }`}
                 disabled={loading}
               />
+              {checkingUsername && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-accent-bitcoin border-t-transparent rounded-full"></div>
+                </div>
+              )}
             </div>
             {validationErrors.username && touched.username && (
-              <p className="mt-1 text-xs text-red-500">{validationErrors.username}</p>
+              <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                {validationErrors.username === 'Username already taken' && <X className="w-3 h-3" />}
+                {validationErrors.username}
+              </p>
             )}
           </div>
 
@@ -309,16 +399,14 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
             </label>
             <div className="relative">
               <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
-              <select
+              <input
+                type="text"
                 name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin appearance-none cursor-pointer"
-                disabled={loading}
-              >
-                <option value="customer">Customer</option>
-                <option value="admin">Admin</option>
-              </select>
+                value="Customer"
+                readOnly
+                className="w-full pl-10 pr-4 py-3 bg-light-100 dark:bg-dark-900 border border-light-300 dark:border-dark-600 rounded-lg text-dark-600 dark:text-dark-400 cursor-not-allowed"
+                disabled={true}
+              />
             </div>
           </div>
 
@@ -336,6 +424,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 placeholder="Enter secure password"
+                autoComplete="new-password"
                 className={`w-full pl-10 pr-12 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   validationErrors.password && touched.password
                     ? 'border-red-500 focus:ring-red-500'
@@ -408,6 +497,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 placeholder="Re-enter password"
+                autoComplete="new-password"
                 className={`w-full pl-10 pr-12 py-3 bg-light-50 dark:bg-dark-800 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   validationErrors.confirmPassword && touched.confirmPassword
                     ? 'border-red-500 focus:ring-red-500'

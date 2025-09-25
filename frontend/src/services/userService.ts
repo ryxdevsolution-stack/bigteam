@@ -30,4 +30,15 @@ export const userService = {
   getUserProfile: () => api.get<User>('/user/profile'),
 
   updateUserProfile: (data: Partial<User>) => api.put<User>('/user/profile', data),
+
+  // Validation endpoints
+  checkEmailExists: async (email: string) => {
+    const response = await api.post<{ exists: boolean }>('/auth/check-email', { email })
+    return response.data.exists
+  },
+
+  checkUsernameExists: async (username: string) => {
+    const response = await api.post<{ exists: boolean }>('/auth/check-username', { username })
+    return response.data.exists
+  },
 }

@@ -139,11 +139,14 @@ docker build -t bigteam/frontend:latest ./frontend
 - **NEVER copy-paste code blocks** - Extract to shared utilities
 - **NO overlapping functionality** - Reuse existing implementations
 
-### 3. NO MOCK DATA IN PRODUCTION CODE
-- **NEVER leave mock/dummy data** in production files
-- **Always use real-time data** from database/API
-- **Remove all test data** before finalizing features
+### 3. NO MOCK DATA IN PRODUCTION CODE - ABSOLUTE RULE
+- **NEVER use mock/dummy/fake/sample data** in ANY production files
+- **NEVER generate random data** with Math.random() or similar functions
+- **NEVER hardcode test values** like "User123", "test@example.com", etc.
+- **Always use real-time data** from database/API only
+- **Remove ALL test data immediately** before finalizing features
 - **Keep mock data only in test files** or development seeds
+- **If no real data exists, show "No data available"** instead of generating fake data
 
 ### 4. RESPONSIVE DESIGN REQUIREMENTS
 - **MUST be fully responsive** for ALL screen sizes (mobile, tablet, desktop, 4K)
@@ -180,6 +183,18 @@ docker build -t bigteam/frontend:latest ./frontend
 - **Use WebSockets or polling** for real-time updates
 - **Cache appropriately** but always validate freshness
 - **Handle offline scenarios** gracefully
+
+### 9. PERFORMANCE OPTIMIZATION - CRITICAL
+- **NEVER make duplicate API calls** - Use shared data contexts
+- **Implement request deduplication** - Return existing promises for concurrent requests
+- **Use connection pooling** for database connections
+- **Cache API responses** with 5-second TTL minimum
+- **Batch API calls** when possible instead of multiple individual calls
+- **Response times MUST be under 500ms** for API endpoints
+- **Use performance timing** to log slow operations (>100ms)
+- **NEVER call fetchPosts() after adding new post** - Update state locally
+- **Implement optimistic UI updates** - Update UI before API confirms
+- **Use React.memo and useMemo** to prevent unnecessary re-renders
 
 ## 📋 CLAUDE CODE CHECKLIST (Run Before Every Task Completion)
 

@@ -4,7 +4,9 @@ import LoginPage from './pages/LoginPage'
 import DashboardLayout from './components/dashboard/Layout/DashboardLayout'
 import Dashboard from './pages/admin/Dashboard'
 import UserManagement from './pages/admin/UserManagement'
+import ContentManagement from './pages/admin/ContentManagement'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { DataProvider } from './contexts/DataContext'
 
 function App() {
   useEffect(() => {
@@ -13,15 +15,18 @@ function App() {
 
   return (
     <ThemeProvider>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin" element={<DashboardLayout />}>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route index element={<Navigate to="dashboard" />} />
-        </Route>
-        <Route path="/" element={<Navigate to="/admin/dashboard" />} />
-      </Routes>
+      <DataProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<DashboardLayout />}>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="content" element={<ContentManagement />} />
+            <Route index element={<Navigate to="dashboard" />} />
+          </Route>
+          <Route path="/" element={<Navigate to="/admin/dashboard" />} />
+        </Routes>
+      </DataProvider>
     </ThemeProvider>
   )
 }

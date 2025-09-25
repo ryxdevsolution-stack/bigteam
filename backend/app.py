@@ -5,7 +5,15 @@ from routes.post import post_bp
 
 app = Flask(__name__)
 
-CORS(app)
+# Configure CORS with explicit settings
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000", "http://localhost:5173"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    }
+})
 
 # Register Blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')

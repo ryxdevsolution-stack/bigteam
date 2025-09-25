@@ -43,6 +43,15 @@ def get_user_by_email(email):
     conn.close()
     return user
 
+def get_user_by_username(username):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+    return user
+
 def get_all_users():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
