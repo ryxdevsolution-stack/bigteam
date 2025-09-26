@@ -5,6 +5,8 @@ import DashboardLayout from './components/dashboard/Layout/DashboardLayout'
 import Dashboard from './pages/admin/Dashboard'
 import UserManagement from './pages/admin/UserManagement'
 import ContentManagement from './pages/admin/ContentManagement'
+import AdManagement from './components/dashboard/AdManagement'
+import ContentFeed from './components/dashboard/ContentFeed'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DataProvider } from './contexts/DataContext'
 
@@ -22,6 +24,8 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="content" element={<ContentManagement />} />
+            <Route path="ads" element={<AdManagement />} />
+            <Route path="feed" element={<ContentFeed />} />
             <Route index element={<Navigate to="dashboard" />} />
           </Route>
           <Route path="/" element={<Navigate to="/admin/dashboard" />} />

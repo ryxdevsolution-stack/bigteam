@@ -71,9 +71,19 @@ def upload_post():
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
-    # Create a unique filename
+    # Create a unique filename with folder structure
     ext = file.filename.rsplit(".", 1)[1].lower()
-    filename = f"{media_type}_{uuid4().hex}_{int(time.time())}.{ext}"
+    base_filename = f"{media_type}_{uuid4().hex}_{int(time.time())}.{ext}"
+
+    # Add folder prefix based on media type
+    if media_type == "video":
+        filename = f"video/{base_filename}"
+    elif media_type == "image":
+        filename = f"image/{base_filename}"
+    elif media_type == "ad":
+        filename = f"Ad/{base_filename}"
+    else:
+        filename = base_filename
 
     # Read file content
     file.seek(0)  # Ensure we're at the beginning of the file
@@ -83,7 +93,8 @@ def upload_post():
     if thumbnail_file and media_type == "video":
         try:
             thumbnail_ext = "jpg"
-            thumbnail_filename = f"thumbnail_{uuid4().hex}_{int(time.time())}.{thumbnail_ext}"
+            # Save thumbnail in video folder with videos
+            thumbnail_filename = f"video/thumbnail_{uuid4().hex}_{int(time.time())}.{thumbnail_ext}"
             thumbnail_file.seek(0)
             thumbnail_content = thumbnail_file.read()
 
@@ -122,8 +133,16 @@ def upload_post():
                 media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
                 print(f"File already exists, using existing URL: {media_url}")
             except:
-                # Generate a new filename and retry
-                filename = f"{media_type}_{uuid4().hex}_{int(time.time())}_retry.{ext}"
+                # Generate a new filename and retry with folder structure
+                base_filename = f"{media_type}_{uuid4().hex}_{int(time.time())}_retry.{ext}"
+                if media_type == "video":
+                    filename = f"video/{base_filename}"
+                elif media_type == "image":
+                    filename = f"image/{base_filename}"
+                elif media_type == "ad":
+                    filename = f"Ad/{base_filename}"
+                else:
+                    filename = base_filename
                 try:
                     response = supabase.storage.from_(bucket_name).upload(
                         path=filename,
@@ -140,8 +159,16 @@ def upload_post():
                 # Ensure bucket exists
                 ensure_bucket_exists()
 
-                # Try with a simpler approach
-                filename = f"{media_type}_{int(time.time())}.{ext}"
+                # Try with a simpler approach but keep folder structure
+                base_filename = f"{media_type}_{int(time.time())}.{ext}"
+                if media_type == "video":
+                    filename = f"video/{base_filename}"
+                elif media_type == "image":
+                    filename = f"image/{base_filename}"
+                elif media_type == "ad":
+                    filename = f"Ad/{base_filename}"
+                else:
+                    filename = base_filename
                 response = supabase.storage.from_(bucket_name).upload(filename, file_content)
                 media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
                 print(f"Uploaded using alternative method: {filename}")

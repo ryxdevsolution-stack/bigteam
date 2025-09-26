@@ -51,10 +51,28 @@ def create_tables():
         """)
         print("✅ Posts table created/verified")
 
+        # Create advertisements table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS advertisements (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                title VARCHAR(200) NOT NULL,
+                media_type VARCHAR(20) NOT NULL,
+                media_url VARCHAR(500) NOT NULL,
+                ad_type VARCHAR(20) NOT NULL CHECK (ad_type IN ('banner', 'in_stream')),
+                is_active BOOLEAN DEFAULT true,
+                start_date TIMESTAMP,
+                end_date TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        print("✅ Advertisements table created/verified")
+
         # Create indexes for better performance
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_media_type ON posts(media_type)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_created_by ON posts(created_by)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_ads_active ON advertisements(is_active)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_ads_dates ON advertisements(start_date, end_date)")
         print("✅ Indexes created/verified")
 
         # Check if table exists and has data

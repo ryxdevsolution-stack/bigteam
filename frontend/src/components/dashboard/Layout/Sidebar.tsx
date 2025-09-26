@@ -5,7 +5,7 @@ import {
   Users,
   FileVideo,
   BarChart3,
-  DollarSign,
+  PlaySquare,
   Settings,
   Bell,
   LogOut,
@@ -18,7 +18,8 @@ import {
   Moon,
   User,
   ChevronDown,
-  Palette
+  Palette,
+  Megaphone
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -56,8 +57,9 @@ const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
     { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
     { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
+    { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
+    { id: 'feed', label: 'Content Feed', icon: PlaySquare, path: '/admin/feed' },
     { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
-    { id: 'revenue', label: 'Ad Revenue', icon: DollarSign, path: '/admin/revenue' },
     { id: 'performance', label: 'Performance', icon: Activity, path: '/admin/performance' },
   ];
 
