@@ -4,6 +4,8 @@ from routes.auth import auth_bp
 from routes.post import post_bp
 from routes.advertisement import ad_bp
 from routes.feed import feed_bp
+from routes.user import user_bp
+from routes.mlm import mlm_bp
 
 app = Flask(__name__)
 
@@ -22,6 +24,8 @@ app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(post_bp)
 app.register_blueprint(ad_bp)
 app.register_blueprint(feed_bp)
+app.register_blueprint(user_bp)
+app.register_blueprint(mlm_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

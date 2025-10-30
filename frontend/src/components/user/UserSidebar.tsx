@@ -2,27 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  Users,
-  FileVideo,
-  BarChart3,
   PlaySquare,
+  User,
+  Network,
   Settings,
   Bell,
   LogOut,
-  TrendingUp,
-  Activity,
-  ChevronRight,
+  ChevronDown,
   Menu,
   X,
   Sun,
   Moon,
-  User,
-  ChevronDown,
   Palette,
-  Megaphone
+  DollarSign,
+  Users
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MenuItem {
   id: string;
@@ -32,7 +28,7 @@ interface MenuItem {
   badge?: number;
 }
 
-const Sidebar: React.FC = () => {
+const UserSidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -54,15 +50,12 @@ const Sidebar: React.FC = () => {
   }, []);
 
   const menuItems: MenuItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
-    { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
-    { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
-    { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
-    { id: 'performance', label: 'Performance', icon: Activity, path: '/admin/performance' },
+    { id: 'feed', label: 'Content Feed', icon: PlaySquare, path: '/user/feed' },
+    { id: 'mlm-tree', label: 'My Team', icon: Network, path: '/user/mlm-tree' },
+    { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/user/earnings' },
   ];
 
-  const notificationCount = 5; // This would come from your state management or API
+  const notificationCount = 3;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -79,7 +72,7 @@ const Sidebar: React.FC = () => {
           {!isCollapsed && (
             <div>
               <h1 className="text-base sm:text-lg md:text-xl font-bold bg-gradient-to-r from-accent-orange to-accent-bitcoin bg-clip-text text-transparent">BigTeam</h1>
-              <p className="text-[0.625rem] sm:text-xs text-dark-700 dark:text-dark-300 font-medium">Admin Panel</p>
+              <p className="text-[0.625rem] sm:text-xs text-dark-700 dark:text-dark-300 font-medium">User Dashboard</p>
             </div>
           )}
         </motion.div>
@@ -151,13 +144,13 @@ const Sidebar: React.FC = () => {
               {!isCollapsed && (
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs sm:text-sm font-bold text-dark-900 dark:text-white truncate">
-                    {user.name || 'David Owner'}
+                    {user.full_name || user.name || 'User'}
                   </p>
                   <p className="text-[0.625rem] sm:text-xs text-dark-700 dark:text-dark-300 truncate font-medium">
-                    {user.email || 'admin@bigteam.net'}
+                    {user.email || 'user@bigteam.net'}
                   </p>
-                  <p className="text-[0.625rem] sm:text-xs text-accent-bitcoin dark:text-accent-gold font-semibold">
-                    {user.role || 'Administrator'}
+                  <p className="text-[0.625rem] sm:text-xs text-accent-bitcoin dark:text-accent-gold font-semibold capitalize">
+                    {user.role || 'Member'}
                   </p>
                 </div>
               )}
@@ -179,7 +172,7 @@ const Sidebar: React.FC = () => {
                 className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-dark-800 rounded-xl shadow-xl border border-light-300 dark:border-dark-700 overflow-hidden"
               >
                 <Link
-                  to="/admin/notifications"
+                  to="/user/notifications"
                   onClick={() => setIsProfileDropdownOpen(false)}
                   className="flex items-center justify-between w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
                 >
@@ -195,7 +188,7 @@ const Sidebar: React.FC = () => {
                 </Link>
 
                 <Link
-                  to="/admin/settings"
+                  to="/user/settings"
                   onClick={() => setIsProfileDropdownOpen(false)}
                   className="flex items-center space-x-3 w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
                 >
@@ -247,13 +240,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-50 p-1.5 sm:p-2 rounded-lg bg-white dark:bg-dark-900 border border-light-300 dark:border-dark-800 shadow-lg"
-      >
-        {isMobileOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
-      </button>
-
+      {/* Sidebar only visible on desktop - No hamburger menu on mobile */}
       <motion.div
         initial={false}
         animate={{ width: isCollapsed ? 'auto' : 'auto' }}
@@ -265,24 +252,8 @@ const Sidebar: React.FC = () => {
       >
         {sidebarContent}
       </motion.div>
-
-      <motion.div
-        initial={{ x: '-100%' }}
-        animate={{ x: isMobileOpen ? 0 : '-100%' }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-        className="lg:hidden fixed inset-y-0 left-0 z-40 w-[70vw] sm:w-64 md:w-72 max-w-[20rem] flex flex-col bg-white dark:bg-dark-900/95 backdrop-blur-2xl border-r border-light-200 dark:border-dark-700 shadow-2xl"
-      >
-        {sidebarContent}
-      </motion.div>
-
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
     </>
   );
 };
 
-export default Sidebar;
+export default UserSidebar;

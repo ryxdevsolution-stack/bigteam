@@ -10,6 +10,25 @@ export interface CreateUserPayload {
   referred_by?: string
 }
 
+export interface DashboardStats {
+  user: User;
+  total_referrals: number;
+  active_referrals: number;
+  inactive_referrals: number;
+  total_earnings: number;
+  available_balance: number;
+  pending_balance: number;
+  total_commissions: number;
+  commission_received_count: number;
+  is_mlm_active: boolean;
+  referral_code: string;
+  recent_commissions: Array<{
+    amount: number;
+    created_at: string;
+    from_user: string;
+  }>;
+}
+
 export const userService = {
   // Admin user management endpoints
   getAllUsers: async () => {
@@ -26,10 +45,23 @@ export const userService = {
 
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 
-  // User profile endpoints
-  getUserProfile: () => api.get<User>('/user/profile'),
+  // User profile endpoints (with user_id parameter for now, will use JWT later)
+  getUserProfile: (userId: string) => api.get<{ user: User }>(`/api/user/profile?user_id=${userId}`),
 
-  updateUserProfile: (data: Partial<User>) => api.put<User>('/user/profile', data),
+  updateUserProfile: (userId: string, data: Partial<User>) =>
+    api.put<{ user: User }>('/api/user/profile', { user_id: userId, ...data }),
+
+  // User dashboard stats
+  getDashboardStats: async (userId: string): Promise<DashboardStats> => {
+    const response = await api.get<{ stats: DashboardStats }>(`/api/user/dashboard-stats?user_id=${userId}`)
+    return response.data.stats
+  },
+
+  // User referrals
+  getReferrals: async (userId: string) => {
+    const response = await api.get(`/api/user/referrals?user_id=${userId}`)
+    return response.data.referrals
+  },
 
   // Validation endpoints
   checkEmailExists: async (email: string) => {

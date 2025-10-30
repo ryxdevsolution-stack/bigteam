@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(tree:*)",
+      "Bash(timeout 5 python:*)",
+      "Bash(python create_tables.py:*)",
+      "Bash(python mlm_migration.py:*)",
+      "Bash(python:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
