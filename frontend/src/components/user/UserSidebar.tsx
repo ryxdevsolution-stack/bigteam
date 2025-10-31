@@ -1,21 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard,
-  PlaySquare,
+  Home,
   User,
   Network,
-  Settings,
-  Bell,
   LogOut,
   ChevronDown,
-  Menu,
-  X,
   Sun,
   Moon,
   Palette,
-  DollarSign,
-  Users
+  DollarSign
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -50,12 +44,10 @@ const UserSidebar: React.FC = () => {
   }, []);
 
   const menuItems: MenuItem[] = [
-    { id: 'feed', label: 'Content Feed', icon: PlaySquare, path: '/user/feed' },
+    { id: 'feed', label: 'Home', icon: Home, path: '/user/feed' },
     { id: 'mlm-tree', label: 'My Team', icon: Network, path: '/user/mlm-tree' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/user/earnings' },
   ];
-
-  const notificationCount = 3;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -132,14 +124,6 @@ const UserSidebar: React.FC = () => {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center shadow-lg">
                   <User className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" />
                 </div>
-                {notificationCount > 0 && !isCollapsed && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-white text-xs items-center justify-center font-bold">
-                      {notificationCount}
-                    </span>
-                  </span>
-                )}
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0 text-left">
@@ -172,28 +156,12 @@ const UserSidebar: React.FC = () => {
                 className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-dark-800 rounded-xl shadow-xl border border-light-300 dark:border-dark-700 overflow-hidden"
               >
                 <Link
-                  to="/user/notifications"
-                  onClick={() => setIsProfileDropdownOpen(false)}
-                  className="flex items-center justify-between w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Bell className="w-4 h-4 text-dark-700 dark:text-dark-300" />
-                    <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Notifications</span>
-                  </div>
-                  {notificationCount > 0 && (
-                    <span className="flex items-center justify-center px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold">
-                      {notificationCount}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  to="/user/settings"
+                  to="/user/profile"
                   onClick={() => setIsProfileDropdownOpen(false)}
                   className="flex items-center space-x-3 w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
                 >
-                  <Settings className="w-4 h-4 text-dark-700 dark:text-dark-300" />
-                  <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Settings</span>
+                  <User className="w-4 h-4 text-dark-700 dark:text-dark-300" />
+                  <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Profile</span>
                 </Link>
 
                 <button

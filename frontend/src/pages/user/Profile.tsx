@@ -1,30 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Copy, CheckCircle, Calendar, Award } from 'lucide-react';
-import { userService } from '../../services/userService';
+import { useData } from '../../contexts/DataContext';
 
 const UserProfile: React.FC = () => {
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { userProfile: profile, userProfileLoading: loading, fetchUserProfile } = useData();
   const [copied, setCopied] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await userService.getUserProfile(user.id);
-        setProfile(response.data.user);
-      } catch (error) {
-        console.error('Failed to fetch profile:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user.id) {
-      fetchProfile();
+      fetchUserProfile(user.id);
     }
-  }, [user.id]);
+  }, [user.id, fetchUserProfile]);
 
   const copyReferralCode = () => {
     if (profile?.referral_code) {

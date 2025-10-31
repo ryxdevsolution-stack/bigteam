@@ -12,6 +12,7 @@ import UserProfile from './pages/user/Profile'
 import UserFeed from './pages/user/Feed'
 import MLMTree from './pages/user/MLMTree'
 import Earnings from './pages/user/Earnings'
+import Overview from './pages/user/Overview'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DataProvider } from './contexts/DataContext'
 
@@ -37,7 +38,7 @@ function App() {
           {/* User routes with sidebar (hidden on mobile, visible on desktop) */}
           <Route path="/user" element={<UserLayout />}>
             <Route path="dashboard" element={<UserDashboard />} />
-            <Route path="feed" element={<UserFeed />} />
+            <Route path="feed" element={<Overview />} />
             <Route path="profile" element={<UserProfile />} />
             <Route path="mlm-tree" element={<MLMTree />} />
             <Route path="earnings" element={<Earnings />} />

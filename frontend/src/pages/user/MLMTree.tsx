@@ -1,29 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Award, ArrowDown, ArrowRight, CheckCircle, XCircle, Crown, Zap } from 'lucide-react';
-import mlmService, { TreeData } from '../../services/mlmService';
+import { useData } from '../../contexts/DataContext';
 
 const MLMTree: React.FC = () => {
-  const [treeData, setTreeData] = useState<TreeData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { mlmTree: treeData, mlmTreeLoading: loading, fetchMlmTree } = useData();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    const fetchTree = async () => {
-      try {
-        const data = await mlmService.getTree(user.id);
-        setTreeData(data);
-      } catch (error) {
-        console.error('Failed to fetch tree:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user.id) {
-      fetchTree();
+      fetchMlmTree(user.id);
     }
-  }, [user.id]);
+  }, [user.id, fetchMlmTree]);
 
   if (loading) {
     return (

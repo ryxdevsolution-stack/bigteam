@@ -9,30 +9,18 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import { userService, DashboardStats } from '../../services/userService';
+import { useData } from '../../contexts/DataContext';
 
 const UserDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { dashboardStats: stats, dashboardStatsLoading: loading, fetchDashboardStats } = useData();
   const [copied, setCopied] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await userService.getDashboardStats(user.id);
-        setStats(data);
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user.id) {
-      fetchStats();
+      fetchDashboardStats(user.id);
     }
-  }, [user.id]);
+  }, [user.id, fetchDashboardStats]);
 
   const copyReferralCode = () => {
     if (stats?.referral_code) {

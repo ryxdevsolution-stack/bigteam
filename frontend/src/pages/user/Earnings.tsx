@@ -9,36 +9,27 @@ import {
   Copy,
   Download
 } from 'lucide-react';
-import { userService, DashboardStats } from '../../services/userService';
-import mlmService, { Commission } from '../../services/mlmService';
+import { useData } from '../../contexts/DataContext';
 
 const Earnings: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [commissions, setCommissions] = useState<Commission[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    dashboardStats: stats,
+    dashboardStatsLoading,
+    fetchDashboardStats,
+    commissions,
+    commissionsLoading,
+    fetchCommissions
+  } = useData();
   const [copied, setCopied] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const loading = dashboardStatsLoading || commissionsLoading;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsData, commissionsData] = await Promise.all([
-          userService.getDashboardStats(user.id),
-          mlmService.getUserCommissions(user.id, 50)
-        ]);
-        setStats(statsData);
-        setCommissions(commissionsData);
-      } catch (error) {
-        console.error('Failed to fetch earnings data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user.id) {
-      fetchData();
+      fetchDashboardStats(user.id);
+      fetchCommissions(user.id);
     }
-  }, [user.id]);
+  }, [user.id, fetchDashboardStats, fetchCommissions]);
 
   const copyReferralCode = () => {
     if (stats?.referral_code) {
