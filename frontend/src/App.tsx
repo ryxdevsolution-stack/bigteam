@@ -7,12 +7,14 @@ import UserManagement from './pages/admin/UserManagement'
 import ContentManagement from './pages/admin/ContentManagement'
 import AdManagement from './components/dashboard/AdManagement'
 import UserLayout from './components/user/UserLayout'
-import UserDashboard from './pages/user/Dashboard'
 import UserProfile from './pages/user/Profile'
-import UserFeed from './pages/user/Feed'
 import MLMTree from './pages/user/MLMTree'
 import Earnings from './pages/user/Earnings'
 import Overview from './pages/user/Overview'
+import Videos from './pages/user/Videos'
+import Photos from './pages/user/Photos'
+import Meetings from './pages/user/Meetings'
+import TreeProfile from './pages/user/TreeProfile'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DataProvider } from './contexts/DataContext'
 
@@ -37,12 +39,15 @@ function App() {
 
           {/* User routes with sidebar (hidden on mobile, visible on desktop) */}
           <Route path="/user" element={<UserLayout />}>
-            <Route path="dashboard" element={<UserDashboard />} />
-            <Route path="feed" element={<Overview />} />
-            <Route path="profile" element={<UserProfile />} />
+            <Route path="home" element={<Overview />} />
+            <Route path="videos" element={<Videos />} />
+            <Route path="photos" element={<Photos />} />
+            <Route path="meetings" element={<Meetings />} />
+            <Route path="tree-profile" element={<TreeProfile />} />
             <Route path="mlm-tree" element={<MLMTree />} />
             <Route path="earnings" element={<Earnings />} />
-            <Route index element={<Navigate to="feed" />} />
+            <Route path="profile" element={<UserProfile />} />
+            <Route index element={<Navigate to="home" replace />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/login" />} />

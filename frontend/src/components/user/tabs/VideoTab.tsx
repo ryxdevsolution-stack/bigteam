@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, Heart, Share2, Eye, Volume2, VolumeX, ChevronLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Play, Volume2, VolumeX, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { Post } from '../../../types/post';
 
 const VideoTab: React.FC = () => {
+  const navigate = useNavigate();
   const { posts, postsLoading, fetchPosts } = useData();
-  const [viewMode, setViewMode] = useState<'grid' | 'feed'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'feed'>(() => {
+    // Auto-open in feed mode on mobile
+    return window.innerWidth < 1024 ? 'feed' : 'grid';
+  });
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const videos = posts.filter(post => post.media_type === 'video');
 
@@ -17,52 +22,73 @@ const VideoTab: React.FC = () => {
     fetchPosts();
   }, [fetchPosts]);
 
+  // Auto-play video when it's in view (for mobile scroll reels)
   useEffect(() => {
     if (viewMode === 'feed' && videos.length > 0) {
-      const currentVideo = videos[selectedVideoIndex];
-      if (currentVideo) {
-        const video = videoRefs.current[currentVideo.id];
-        if (video) {
-          video.muted = isMuted;
-          video.play().catch(() => {});
-        }
-      }
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const video = entry.target as HTMLVideoElement;
+            if (entry.isIntersecting) {
+              video.play().catch(() => {});
+            } else {
+              video.pause();
+            }
+          });
+        },
+        { threshold: 0.7 }
+      );
 
-      videos.forEach((item, index) => {
-        if (index !== selectedVideoIndex) {
-          const video = videoRefs.current[item.id];
-          if (video) {
-            video.pause();
-            video.currentTime = 0;
-          }
+      Object.values(videoRefs.current).forEach((video) => {
+        if (video && observerRef.current) {
+          observerRef.current.observe(video);
         }
       });
+
+      return () => {
+        if (observerRef.current) {
+          observerRef.current.disconnect();
+        }
+      };
     }
-  }, [viewMode, selectedVideoIndex, videos, isMuted]);
+  }, [viewMode, videos]);
+
+  // Mute/unmute all videos
+  useEffect(() => {
+    Object.values(videoRefs.current).forEach((video) => {
+      if (video) {
+        video.muted = isMuted;
+      }
+    });
+  }, [isMuted]);
 
   const handleVideoClick = (index: number) => {
     setSelectedVideoIndex(index);
     setViewMode('feed');
+
+    // Scroll to the selected video after a short delay to ensure DOM is ready
+    setTimeout(() => {
+      const videoElement = document.getElementById(`video-${videos[index].id}`);
+      if (videoElement) {
+        videoElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+    }, 100);
   };
 
   const handleClose = () => {
-    setViewMode('grid');
-    const currentVideo = videos[selectedVideoIndex];
-    if (currentVideo) {
-      const video = videoRefs.current[currentVideo.id];
+    // Pause all videos before closing
+    Object.values(videoRefs.current).forEach((video) => {
       if (video) {
         video.pause();
       }
-    }
+    });
+
+    setViewMode('grid');
+
+    // Scroll to top of grid view
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSwipe = (direction: 'up' | 'down') => {
-    if (direction === 'up' && selectedVideoIndex < videos.length - 1) {
-      setSelectedVideoIndex(selectedVideoIndex + 1);
-    } else if (direction === 'down' && selectedVideoIndex > 0) {
-      setSelectedVideoIndex(selectedVideoIndex - 1);
-    }
-  };
 
   if (postsLoading) {
     return (
@@ -73,81 +99,99 @@ const VideoTab: React.FC = () => {
   }
 
   if (viewMode === 'feed' && videos.length > 0) {
-    const currentVideo = videos[selectedVideoIndex];
-
     return (
-      <div className="fixed inset-0 bg-black z-50">
-        <div className="relative w-full h-full flex items-center justify-center">
-          <div className="relative w-full h-full max-w-screen-sm mx-auto bg-black">
+      <>
+        <style>{`
+          .reels-container::-webkit-scrollbar {
+            display: none;
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .reels-container {
+            animation: fadeIn 0.2s ease-in;
+          }
+        `}</style>
+        {/* Mobile: Vertical Scrollable Reels */}
+        <div
+          className="reels-container fixed inset-0 bg-black z-[100] lg:hidden overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {videos.map((video, index) => (
+            <div
+              key={video.id}
+              id={`video-${video.id}`}
+              className="relative w-full h-screen snap-start snap-always flex items-center justify-center"
+            >
+              <video
+                ref={el => { if (el) videoRefs.current[video.id] = el; }}
+                src={video.media_url}
+                className="w-full h-full object-cover"
+                loop
+                playsInline
+                muted={isMuted}
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 pointer-events-none" />
+
+              <button
+                onClick={handleClose}
+                className="absolute top-4 left-4 z-10 p-2.5 bg-black/50 backdrop-blur-md rounded-full active:scale-95 transition-transform"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                className="absolute top-4 right-4 z-10 p-2.5 bg-black/50 backdrop-blur-md rounded-full active:scale-95 transition-transform"
+              >
+                {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
+              </button>
+
+              <div className="absolute bottom-24 left-0 right-0 px-4 z-10 pointer-events-none">
+                <h2 className="text-white font-bold text-base mb-1 drop-shadow-lg">
+                  @{video.created_by}
+                </h2>
+                <p className="text-white text-sm drop-shadow-lg line-clamp-2">
+                  {video.title}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: Single Video View */}
+        <div className="hidden lg:block h-[600px] bg-black rounded-2xl overflow-hidden">
+          <div className="relative w-full h-full max-w-md mx-auto">
             <video
-              ref={el => { if (el) videoRefs.current[currentVideo.id] = el; }}
-              src={currentVideo.media_url}
+              ref={el => { if (el) videoRefs.current[videos[selectedVideoIndex].id] = el; }}
+              src={videos[selectedVideoIndex].media_url}
               className="w-full h-full object-contain"
               loop
               playsInline
               muted={isMuted}
               autoPlay
             />
-
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
-
             <button
               onClick={handleClose}
               className="absolute top-4 left-4 z-10 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-all"
             >
               <ChevronLeft className="w-6 h-6 text-white" />
             </button>
-
             <button
               onClick={() => setIsMuted(!isMuted)}
               className="absolute top-4 right-4 z-10 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-all"
             >
               {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
             </button>
-
-            <div className="absolute bottom-20 left-0 right-0 p-6 z-10">
-              <h2 className="text-white font-bold text-lg mb-2 drop-shadow-lg">
-                @{currentVideo.created_by}
-              </h2>
-              <p className="text-white text-sm drop-shadow-lg line-clamp-2">
-                {currentVideo.title}
-              </p>
-            </div>
-
-            <div className="absolute right-4 bottom-32 flex flex-col gap-4 z-10">
-              <div className="flex flex-col items-center gap-1">
-                <Heart className="w-8 h-8 text-white" />
-                <span className="text-white text-xs">{currentVideo.likes_count || 0}</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <Share2 className="w-8 h-8 text-white" />
-                <span className="text-white text-xs">{currentVideo.shares_count || 0}</span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <Eye className="w-8 h-8 text-white" />
-                <span className="text-white text-xs">{currentVideo.views_count || 0}</span>
-              </div>
+            <div className="absolute bottom-8 left-4 right-4 text-white">
+              <h2 className="font-bold mb-1">@{videos[selectedVideoIndex].created_by}</h2>
+              <p className="text-sm line-clamp-2">{videos[selectedVideoIndex].title}</p>
             </div>
           </div>
         </div>
-
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          <button
-            onClick={() => handleSwipe('down')}
-            disabled={selectedVideoIndex === 0}
-            className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => handleSwipe('up')}
-            disabled={selectedVideoIndex === videos.length - 1}
-            className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      </>
     );
   }
 
@@ -158,10 +202,18 @@ const VideoTab: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg"
       >
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white mb-2">
-          Videos
-        </h1>
-        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300">
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => navigate('/user/home')}
+            className="p-2 hover:bg-light-100 dark:hover:bg-dark-700 rounded-lg transition-colors active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-dark-900 dark:text-white" />
+          </button>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white">
+            Videos
+          </h1>
+        </div>
+        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300 ml-14">
           Browse all video content
         </p>
       </motion.div>
@@ -201,16 +253,6 @@ const VideoTab: React.FC = () => {
                 <p className="text-white text-xs sm:text-sm font-semibold line-clamp-2">
                   {video.title}
                 </p>
-                <div className="flex items-center gap-2 sm:gap-3 mt-1 text-white/80 text-xs">
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    {video.views_count || 0}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Heart className="w-3 h-3" />
-                    {video.likes_count || 0}
-                  </span>
-                </div>
               </div>
             </motion.div>
           ))}

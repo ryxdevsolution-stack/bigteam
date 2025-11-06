@@ -25,7 +25,10 @@ def create_ad():
 
     file = request.files["file"]
     title = request.form.get("title")
+    description = request.form.get("description", "")
+    link_url = request.form.get("link_url", "")
     ad_type = request.form.get("ad_type", "banner")  # banner or in_stream
+    status = request.form.get("status", "active")  # active, inactive, scheduled
     start_date = request.form.get("start_date")
     end_date = request.form.get("end_date")
 
@@ -36,6 +39,8 @@ def create_ad():
         return jsonify({"error": "Title is required"}), 400
     if ad_type not in ["banner", "in_stream"]:
         return jsonify({"error": "Invalid ad type"}), 400
+    if status not in ["active", "inactive", "scheduled"]:
+        return jsonify({"error": "Invalid status"}), 400
     if not allowed_file(file.filename):
         return jsonify({"error": "File type not allowed"}), 400
 
@@ -67,10 +72,10 @@ def create_ad():
         cur = conn.cursor()
 
         cur.execute("""
-            INSERT INTO advertisements (title, media_type, media_url, ad_type, start_date, end_date)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO advertisements (title, description, media_type, media_url, link_url, ad_type, status, start_date, end_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at;
-        """, (title, media_type, media_url, ad_type, start_date, end_date))
+        """, (title, description, media_type, media_url, link_url, ad_type, status, start_date, end_date))
 
         result = cur.fetchone()
         ad_id = str(result[0])
@@ -83,10 +88,12 @@ def create_ad():
             "ad": {
                 "id": ad_id,
                 "title": title,
+                "description": description,
                 "media_type": media_type,
                 "media_url": media_url,
+                "link_url": link_url,
                 "ad_type": ad_type,
-                "is_active": True,
+                "status": status,
                 "start_date": start_date,
                 "end_date": end_date,
                 "created_at": created_at
@@ -112,21 +119,21 @@ def get_ads():
         cur = conn.cursor()
 
         # Get filter parameters
-        is_active = request.args.get('active')
+        status = request.args.get('status')
         ad_type = request.args.get('type')
 
         # Build query
         query = """
-            SELECT id, title, media_type, media_url, ad_type,
-                   is_active, start_date, end_date, created_at
+            SELECT id, title, description, media_type, media_url, link_url, ad_type,
+                   status, start_date, end_date, created_at
             FROM advertisements
             WHERE 1=1
         """
         params = []
 
-        if is_active is not None:
-            query += " AND is_active = %s"
-            params.append(is_active == 'true')
+        if status:
+            query += " AND status = %s"
+            params.append(status)
 
         if ad_type:
             query += " AND ad_type = %s"
@@ -143,13 +150,15 @@ def get_ads():
             formatted_ads.append({
                 "id": str(ad[0]),
                 "title": ad[1],
-                "media_type": ad[2],
-                "media_url": ad[3],
-                "ad_type": ad[4],
-                "is_active": ad[5],
-                "start_date": ad[6].isoformat() if ad[6] else None,
-                "end_date": ad[7].isoformat() if ad[7] else None,
-                "created_at": ad[8].isoformat() if ad[8] else None
+                "description": ad[2],
+                "media_type": ad[3],
+                "media_url": ad[4],
+                "link_url": ad[5],
+                "ad_type": ad[6],
+                "status": ad[7],
+                "start_date": ad[8].isoformat() if ad[8] else None,
+                "end_date": ad[9].isoformat() if ad[9] else None,
+                "created_at": ad[10].isoformat() if ad[10] else None
             })
 
         return jsonify(formatted_ads), 200
@@ -205,18 +214,22 @@ def delete_ad(ad_id):
 
 @ad_bp.route("/api/ads/<ad_id>/toggle", methods=["PATCH"])
 def toggle_ad(ad_id):
-    """Toggle advertisement active status"""
+    """Toggle advertisement status between active and inactive"""
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Toggle the is_active status
+        # Toggle the status between active and inactive
         cur.execute("""
             UPDATE advertisements
-            SET is_active = NOT is_active
+            SET status = CASE
+                WHEN status = 'active' THEN 'inactive'
+                ELSE 'active'
+            END,
+            updated_at = NOW()
             WHERE id = %s
-            RETURNING is_active;
+            RETURNING status;
         """, (ad_id,))
 
         result = cur.fetchone()
@@ -227,7 +240,7 @@ def toggle_ad(ad_id):
 
         return jsonify({
             "message": "Status updated successfully",
-            "is_active": result[0]
+            "status": result[0]
         }), 200
 
     except Exception as e:

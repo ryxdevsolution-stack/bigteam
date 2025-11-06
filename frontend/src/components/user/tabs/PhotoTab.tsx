@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Image as ImageIcon, X, Heart, Share2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Image as ImageIcon, X, Heart, Share2, Eye, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { Post } from '../../../types/post';
 
 const PhotoTab: React.FC = () => {
+  const navigate = useNavigate();
   const { posts, postsLoading, fetchPosts } = useData();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   const photos = posts.filter(post => post.media_type === 'image');
 
@@ -20,6 +24,8 @@ const PhotoTab: React.FC = () => {
 
   const handleClose = () => {
     setSelectedPhotoIndex(null);
+    // Scroll to top when closing photo viewer
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePrevious = () => {
@@ -31,6 +37,26 @@ const PhotoTab: React.FC = () => {
   const handleNext = () => {
     if (selectedPhotoIndex !== null && selectedPhotoIndex < photos.length - 1) {
       setSelectedPhotoIndex(selectedPhotoIndex + 1);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 75) {
+      // Swiped left
+      handleNext();
+    }
+
+    if (touchStart - touchEnd < -75) {
+      // Swiped right
+      handlePrevious();
     }
   };
 
@@ -52,10 +78,18 @@ const PhotoTab: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg"
         >
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white mb-2">
-            Photos
-          </h1>
-          <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300">
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              onClick={() => navigate('/user/home')}
+              className="p-2 hover:bg-light-100 dark:hover:bg-dark-700 rounded-lg transition-colors active:scale-95"
+            >
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-dark-900 dark:text-white" />
+            </button>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white">
+              Photos
+            </h1>
+          </div>
+          <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300 ml-14">
             Browse all photo content
           </p>
         </motion.div>
@@ -119,16 +153,20 @@ const PhotoTab: React.FC = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black z-50 flex items-center justify-center"
             onClick={handleClose}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative w-full h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
               <motion.img
                 key={selectedPhoto.id}
-                initial={{ scale: 0.8, opacity: 0 }}
+                initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.3 }}
                 src={selectedPhoto.media_url}
                 alt={selectedPhoto.title}
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full object-contain rounded-lg"
               />
 
               <button
@@ -156,26 +194,37 @@ const PhotoTab: React.FC = () => {
                 </button>
               )}
 
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 sm:p-6">
-                <h2 className="text-white font-bold text-lg sm:text-xl mb-2">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 sm:p-6 pb-safe">
+                <h2 className="text-white font-bold text-base sm:text-lg mb-1">
                   @{selectedPhoto.created_by}
                 </h2>
-                <p className="text-white text-sm sm:text-base mb-3">
+                <p className="text-white/90 text-sm sm:text-base mb-3">
                   {selectedPhoto.title}
                 </p>
-                <div className="flex items-center gap-4 sm:gap-6 text-white/90 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-                    {selectedPhoto.likes_count || 0}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    {selectedPhoto.shares_count || 0}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
-                    {selectedPhoto.views_count || 0}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <button className="flex flex-col items-center gap-1 hover:scale-110 transition-transform">
+                      <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      <span className="text-white text-xs font-semibold">{selectedPhoto.likes_count || 0}</span>
+                    </button>
+                    <button className="flex flex-col items-center gap-1 hover:scale-110 transition-transform">
+                      <Share2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      <span className="text-white text-xs font-semibold">{selectedPhoto.shares_count || 0}</span>
+                    </button>
+                    <span className="flex flex-col items-center gap-1">
+                      <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-white/70" />
+                      <span className="text-white/70 text-xs font-semibold">{selectedPhoto.views_count || 0}</span>
+                    </span>
+                  </div>
+                  {selectedPhotoIndex !== null && (
+                    <span className="text-white/60 text-xs sm:text-sm font-medium">
+                      {selectedPhotoIndex + 1} / {photos.length}
+                    </span>
+                  )}
+                </div>
+                {/* Swipe Indicator for Mobile */}
+                <div className="flex items-center justify-center mt-3 lg:hidden">
+                  <span className="text-white/50 text-xs">Swipe left or right for more</span>
                 </div>
               </div>
             </div>

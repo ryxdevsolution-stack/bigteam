@@ -9,7 +9,10 @@ import {
   Sun,
   Moon,
   Palette,
-  DollarSign
+  DollarSign,
+  Video,
+  Image,
+  Calendar
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -44,8 +47,11 @@ const UserSidebar: React.FC = () => {
   }, []);
 
   const menuItems: MenuItem[] = [
-    { id: 'feed', label: 'Home', icon: Home, path: '/user/feed' },
-    { id: 'mlm-tree', label: 'My Team', icon: Network, path: '/user/mlm-tree' },
+    { id: 'home', label: 'Home', icon: Home, path: '/user/home' },
+    { id: 'videos', label: 'Videos', icon: Video, path: '/user/videos' },
+    { id: 'photos', label: 'Photos', icon: Image, path: '/user/photos' },
+    { id: 'meetings', label: 'Meetings', icon: Calendar, path: '/user/meetings' },
+    { id: 'tree-profile', label: 'Tree & Profile', icon: Network, path: '/user/tree-profile' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/user/earnings' },
   ];
 
