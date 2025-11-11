@@ -56,9 +56,10 @@ def get_all_users():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
-        SELECT id, full_name, username, email, role, created_at, is_active
+        SELECT id, full_name, username, email, role, created_at, is_active,
+               sponsored_by, is_mlm_active, total_earnings,
+               referral_code, activation_date
         FROM users
-        WHERE role = 'customer'
         ORDER BY created_at DESC
     """)
     users = cur.fetchall()

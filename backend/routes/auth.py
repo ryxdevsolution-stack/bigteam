@@ -101,7 +101,7 @@ def check_username():
 @auth_bp.route('/admin/users', methods=['GET'])
 def get_users():
     try:
-        # Returns only customer users (excludes admin accounts)
+        # Returns all users with MLM fields for admin tree view
         # In production, you would also verify the requesting user is an admin
         users = get_all_users()
 
@@ -115,7 +115,12 @@ def get_users():
                 "email": user["email"],
                 "role": user["role"],
                 "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
-                "is_active": user.get("is_active", True)
+                "is_active": user.get("is_active", True),
+                "sponsored_by": str(user["sponsored_by"]) if user.get("sponsored_by") else None,
+                "is_mlm_active": user.get("is_mlm_active", False),
+                "total_earnings": float(user["total_earnings"]) if user.get("total_earnings") else 0.0,
+                "referral_code": user.get("referral_code"),
+                "activation_date": user["activation_date"].isoformat() if user.get("activation_date") else None
             })
 
         return jsonify(formatted_users), 200

@@ -4,14 +4,10 @@ import {
   LayoutDashboard,
   Users,
   FileVideo,
-  BarChart3,
-  PlaySquare,
   Settings,
   Bell,
   LogOut,
   TrendingUp,
-  Activity,
-  ChevronRight,
   Menu,
   X,
   Sun,
@@ -58,8 +54,7 @@ const Sidebar: React.FC = () => {
     { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
     { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
     { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
-    { id: 'performance', label: 'Performance', icon: Activity, path: '/admin/performance' },
+    { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },
   ];
 
   const notificationCount = 5; // This would come from your state management or API
