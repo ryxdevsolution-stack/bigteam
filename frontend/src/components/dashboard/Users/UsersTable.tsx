@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   User as UserIcon,
@@ -6,13 +6,15 @@ import {
   Shield,
   Calendar,
   MoreVertical,
-  Eye,
   Edit,
   Trash2,
   RefreshCw,
   Users
 } from 'lucide-react'
 import { User } from '../../../types/user'
+import { userService } from '../../../services/userService'
+import EditUserModal from './EditUserModal'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
 interface UsersTableProps {
   users: User[]
@@ -21,6 +23,12 @@ interface UsersTableProps {
 }
 
 const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) => {
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -39,6 +47,49 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
       default:
         return 'bg-gray-500 text-white'
     }
+  }
+
+  const handleEdit = (user: User) => {
+    setSelectedUser(user)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSave = async (userId: string, data: Partial<User>) => {
+    await userService.updateUser(userId, data)
+    await onRefresh()
+  }
+
+  const handleDelete = (user: User) => {
+    setUserToDelete(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await userService.deleteUser(userToDelete.id)
+      setIsDeleteModalOpen(false)
+      setUserToDelete(null)
+      await onRefresh()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete user')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleCloseDeleteModal = () => {
+    if (!isDeleting) {
+      setIsDeleteModalOpen(false)
+      setUserToDelete(null)
+    }
+  }
+
+  const handleCloseModal = () => {
+    setIsEditModalOpen(false)
+    setSelectedUser(null)
   }
 
   if (loading && users.length === 0) {
@@ -113,12 +164,15 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
                 Role
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                Amount
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                 Created
               </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -156,6 +210,13 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
                   </span>
                 </td>
                 <td className="px-6 py-4">
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm font-semibold text-dark-900 dark:text-white">
+                      ${(user.amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                     user.is_active !== false
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -170,27 +231,31 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
                     <span>{formatDate(user.created_at)}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-center space-x-2">
+                <td className="px-2 sm:px-4 md:px-6 py-4">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
                     <button
-                      className="p-2 rounded-lg hover:bg-light-100 dark:hover:bg-dark-700 transition-colors group"
-                      title="View User"
-                    >
-                      <Eye className="w-4 h-4 text-dark-600 dark:text-dark-400 group-hover:text-accent-bitcoin" />
-                    </button>
-                    <button
-                      className="p-2 rounded-lg hover:bg-light-100 dark:hover:bg-dark-700 transition-colors group"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEdit(user)
+                      }}
+                      className="p-1.5 sm:p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group cursor-pointer"
                       title="Edit User"
-                      disabled
+                      aria-label="Edit User"
+                      disabled={isDeleting}
                     >
-                      <Edit className="w-4 h-4 text-dark-400 dark:text-dark-600" />
+                      <Edit className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
                     </button>
                     <button
-                      className="p-2 rounded-lg hover:bg-light-100 dark:hover:bg-dark-700 transition-colors group"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(user)
+                      }}
+                      className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group cursor-pointer disabled:opacity-50"
                       title="Delete User"
-                      disabled
+                      aria-label="Delete User"
+                      disabled={isDeleting}
                     >
-                      <Trash2 className="w-4 h-4 text-dark-400 dark:text-dark-600" />
+                      <Trash2 className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors" />
                     </button>
                   </div>
                 </td>
@@ -240,6 +305,13 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
               </div>
 
               <div className="flex items-center justify-between">
+                <span className="text-sm text-dark-600 dark:text-dark-400">Amount:</span>
+                <span className="text-sm font-semibold text-dark-900 dark:text-white">
+                  ${(user.amount || 0).toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-dark-600 dark:text-dark-400">Status:</span>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                   user.is_active !== false
@@ -256,14 +328,56 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-light-200 dark:border-dark-700 flex justify-end space-x-2">
-              <button className="px-4 py-2 text-sm bg-accent-bitcoin/10 text-accent-bitcoin rounded-lg hover:bg-accent-bitcoin/20 transition-colors">
-                View Details
-              </button>
+            <div className="pt-3 border-t border-light-200 dark:border-dark-700">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEdit(user)
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/20 active:bg-blue-500/30 transition-all font-medium cursor-pointer disabled:opacity-50"
+                  aria-label="Edit User"
+                  disabled={isDeleting}
+                >
+                  <Edit className="w-4 h-4" />
+                  <span className="hidden xs:inline">Edit</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(user)
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 active:bg-red-500/30 transition-all font-medium cursor-pointer disabled:opacity-50"
+                  aria-label="Delete User"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden xs:inline">Delete</span>
+                </button>
+              </div>
             </div>
           </motion.div>
         ))}
       </div>
+
+      {/* Edit User Modal */}
+      {selectedUser && (
+        <EditUserModal
+          user={selectedUser}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseModal}
+          onSave={handleSave}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        user={userToDelete}
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
     </motion.div>
   )
 }

@@ -8,6 +8,7 @@ export interface CreateUserPayload {
   password: string
   role?: 'customer' | 'admin'
   referred_by?: string
+  amount?: number
 }
 
 export interface DashboardStats {
@@ -41,9 +42,9 @@ export const userService = {
   // Using the actual backend register endpoint for user creation
   createUser: (data: CreateUserPayload) => api.post('/auth/register', data),
 
-  updateUser: (id: string, data: Partial<User>) => api.put<User>(`/admin/users/${id}`, data),
+  updateUser: (id: string, data: Partial<User>) => api.put<User>(`/auth/admin/users/${id}`, data),
 
-  deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
+  deleteUser: (id: string) => api.delete(`/auth/admin/users/${id}`),
 
   // User profile endpoints (with user_id parameter for now, will use JWT later)
   getUserProfile: (userId: string) => api.get<{ user: User }>(`/api/user/profile?user_id=${userId}`),

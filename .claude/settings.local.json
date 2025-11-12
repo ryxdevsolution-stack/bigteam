@@ -13,7 +13,13 @@
       "Bash(python3:*)",
       "Bash(pkill:*)",
       "Bash(source:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(test:*)",
+      "Bash(pip install:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

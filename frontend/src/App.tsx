@@ -6,6 +6,7 @@ import Dashboard from './pages/admin/Dashboard'
 import UserManagement from './pages/admin/UserManagement'
 import ContentManagement from './pages/admin/ContentManagement'
 import UserTreeView from './pages/admin/UserTreeView'
+import CustomerOverview from './pages/admin/CustomerOverview'
 import AdManagement from './components/dashboard/AdManagement'
 import UserLayout from './components/user/UserLayout'
 import UserProfile from './pages/user/Profile'
@@ -33,6 +34,7 @@ function App() {
           <Route path="/admin" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<UserManagement />} />
+            <Route path="customers" element={<CustomerOverview />} />
             <Route path="content" element={<ContentManagement />} />
             <Route path="ads" element={<AdManagement />} />
             <Route path="tree" element={<UserTreeView />} />

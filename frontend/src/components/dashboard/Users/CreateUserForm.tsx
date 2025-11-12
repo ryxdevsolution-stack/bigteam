@@ -10,7 +10,8 @@ import {
   EyeOff,
   AlertCircle,
   Check,
-  X
+  X,
+  DollarSign
 } from 'lucide-react'
 import { CreateUserPayload, userService } from '../../../services/userService'
 
@@ -33,7 +34,8 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     username: '',
     password: '',
     role: 'customer',
-    referred_by: ''
+    referred_by: '',
+    amount: 0
   })
 
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -43,6 +45,43 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [checkingEmail, setCheckingEmail] = useState(false)
   const [checkingUsername, setCheckingUsername] = useState(false)
+  const [chainPosition, setChainPosition] = useState<number | null>(null)
+  const [commissionReceivers, setCommissionReceivers] = useState<Array<{ position: number; username: string }>>([])
+
+  // Fetch chain position information
+  useEffect(() => {
+    const fetchChainPosition = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+        const response = await fetch(`${apiUrl}/auth/admin/users`)
+        if (response.ok) {
+          const users = await response.json()
+          const sortedUsers = users.sort((a: any, b: any) => {
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          })
+
+          // New user will be at position = total users + 1
+          const newPosition = sortedUsers.length + 1
+          setChainPosition(newPosition)
+
+          // Find last 2 active MLM users who would receive commissions
+          const activeUsers = sortedUsers
+            .filter((u: any) => u.is_mlm_active)
+            .map((u: any, idx: number) => ({
+              position: sortedUsers.indexOf(u) + 1,
+              username: u.username
+            }))
+
+          const receivers = activeUsers.slice(-2) // Last 2 active users
+          setCommissionReceivers(receivers)
+        }
+      } catch (error) {
+        console.error('Failed to fetch chain position:', error)
+      }
+    }
+
+    fetchChainPosition()
+  }, [])
 
   const passwordStrength = {
     hasMinLength: formData.password.length >= 8,
@@ -260,7 +299,8 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
         username: '',
         password: '',
         role: 'customer',
-        referred_by: ''
+        referred_by: '',
+        amount: 0
       })
       setConfirmPassword('')
       setTouched({})
@@ -544,7 +584,79 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
               />
             </div>
           </div>
+
+          {/* Amount */}
+          <div>
+            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+              Initial Amount (Optional)
+            </label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+              <input
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={handleInputChange}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                className="w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
+                disabled={loading}
+              />
+            </div>
+            <p className="mt-1 text-xs text-dark-500 dark:text-dark-400">
+              Starting balance for the user account
+            </p>
+          </div>
         </div>
+
+        {/* MLM Chain Position Info */}
+        {chainPosition !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-accent-bitcoin/10 to-accent-orange/10 border-2 border-accent-bitcoin/30 rounded-xl p-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center font-bold text-white text-lg shadow-lg flex-shrink-0">
+                #{chainPosition}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-dark-900 dark:text-white mb-1">
+                  MLM Chain Position
+                </h4>
+                <p className="text-sm text-dark-600 dark:text-dark-400 mb-3">
+                  This user will be added at position <span className="font-semibold text-accent-bitcoin">#{chainPosition}</span> in the MLM chain
+                </p>
+
+                {commissionReceivers.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-dark-700 dark:text-dark-300">
+                      When this user activates, commissions will go to:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {commissionReceivers.map((receiver) => (
+                        <span
+                          key={receiver.position}
+                          className="px-3 py-1.5 rounded-lg bg-white dark:bg-dark-800 border border-accent-bitcoin/30 text-accent-bitcoin font-semibold text-sm shadow-sm"
+                        >
+                          #{receiver.position} {receiver.username}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      No active MLM users yet. This user will be among the first in the chain.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Form Actions */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -565,7 +677,8 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 username: '',
                 password: '',
                 role: 'customer',
-                referred_by: ''
+                referred_by: '',
+                amount: 0
               })
               setConfirmPassword('')
               setTouched({})

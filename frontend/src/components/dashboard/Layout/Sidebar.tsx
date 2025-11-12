@@ -15,7 +15,8 @@ import {
   User,
   ChevronDown,
   Palette,
-  Megaphone
+  Megaphone,
+  UserCheck
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -52,6 +53,7 @@ const Sidebar: React.FC = () => {
   const menuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
     { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
+    { id: 'customers', label: 'Customer Overview', icon: UserCheck, path: '/admin/customers' },
     { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
     { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
     { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },

@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
-from models.user_model import create_user, get_user_by_email, get_all_users
+from models.user_model import create_user, get_user_by_email, get_all_users, update_user, delete_user, get_user_by_id
+from services.mlm_service import MLMService
+from decimal import Decimal
 
 auth_bp = Blueprint('auth', __name__)
 bcrypt = Bcrypt()
@@ -25,14 +27,49 @@ def register():
         email=data['email'],
         username=data['username'],
         password_hash=hashed_pw,
-        role=data.get('role', 'customer')
+        role=data.get('role', 'customer'),
+        amount=data.get('amount', 0.00)
     )
 
     # Handle duplicate email/username
     if error:
         return jsonify({'error': error}), 409  # Conflict
 
-    return jsonify({'message': 'User registered successfully', 'user_id': user_id}), 201
+    # Auto-activate user in MLM if amount is provided
+    mlm_result = None
+    amount = data.get('amount', 0)
+    if amount and amount > 0:
+        try:
+            # Get MLM settings
+            settings = MLMService.get_settings()
+            activation_amount = settings.get('activation_amount', Decimal('1000'))
+
+            # Activate if user has enough amount
+            if Decimal(str(amount)) >= activation_amount:
+                sponsored_by = data.get('referred_by')  # Optional sponsor
+                success, message, result = MLMService.activate_user(
+                    user_id=str(user_id),
+                    amount=Decimal(str(amount)),
+                    sponsored_by=sponsored_by
+                )
+                mlm_result = {
+                    'activated': success,
+                    'message': message,
+                    'details': result if success else None
+                }
+        except Exception as e:
+            # Don't fail registration if MLM activation fails
+            mlm_result = {'activated': False, 'error': str(e)}
+
+    response = {
+        'message': 'User registered successfully',
+        'user_id': str(user_id)
+    }
+
+    if mlm_result:
+        response['mlm'] = mlm_result
+
+    return jsonify(response), 201
 
 # --------------------------
 # Login Endpoint
@@ -56,7 +93,8 @@ def login():
                 "id": user["id"],
                 "full_name": user["full_name"],
                 "email": user["email"],
-                "role": user["role"]
+                "role": user["role"],
+                "amount": float(user["amount"]) if user.get("amount") else 0.0
             }
         }), 200
 
@@ -120,9 +158,83 @@ def get_users():
                 "is_mlm_active": user.get("is_mlm_active", False),
                 "total_earnings": float(user["total_earnings"]) if user.get("total_earnings") else 0.0,
                 "referral_code": user.get("referral_code"),
-                "activation_date": user["activation_date"].isoformat() if user.get("activation_date") else None
+                "activation_date": user["activation_date"].isoformat() if user.get("activation_date") else None,
+                "amount": float(user["amount"]) if user.get("amount") else 0.0,
+                "commission_received_count": user.get("commission_received_count", 0)
             })
 
         return jsonify(formatted_users), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --------------------------
+# Update User Endpoint (Admin)
+# --------------------------
+@auth_bp.route('/admin/users/<user_id>', methods=['PUT'])
+def update_user_endpoint(user_id):
+    try:
+        data = request.get_json()
+
+        # Extract fields to update
+        full_name = data.get('full_name')
+        email = data.get('email')
+        username = data.get('username')
+        role = data.get('role')
+        amount = data.get('amount')
+        is_active = data.get('is_active')
+
+        # Update user
+        user, error = update_user(
+            user_id=user_id,
+            full_name=full_name,
+            email=email,
+            username=username,
+            role=role,
+            amount=amount,
+            is_active=is_active
+        )
+
+        if error:
+            return jsonify({'error': error}), 400 if error == "No fields to update" else 404
+
+        # Format response
+        formatted_user = {
+            "id": user["id"],
+            "full_name": user["full_name"],
+            "username": user["username"],
+            "email": user["email"],
+            "role": user["role"],
+            "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+            "is_active": user.get("is_active", True),
+            "sponsored_by": str(user["sponsored_by"]) if user.get("sponsored_by") else None,
+            "is_mlm_active": user.get("is_mlm_active", False),
+            "total_earnings": float(user["total_earnings"]) if user.get("total_earnings") else 0.0,
+            "referral_code": user.get("referral_code"),
+            "activation_date": user["activation_date"].isoformat() if user.get("activation_date") else None,
+            "amount": float(user["amount"]) if user.get("amount") else 0.0,
+            "commission_received_count": user.get("commission_received_count", 0)
+        }
+
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': formatted_user
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --------------------------
+# Delete User Endpoint (Admin)
+# --------------------------
+@auth_bp.route('/admin/users/<user_id>', methods=['DELETE'])
+def delete_user_endpoint(user_id):
+    try:
+        success, error = delete_user(user_id)
+
+        if error:
+            return jsonify({'error': error}), 404
+
+        return jsonify({
+            'message': 'User deleted successfully'
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
