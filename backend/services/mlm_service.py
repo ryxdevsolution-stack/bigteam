@@ -172,6 +172,10 @@ class MLMService:
             if not user:
                 return False, "User not found", {}
 
+            # Admin users should NOT be in MLM system
+            if user.get('role') == 'admin':
+                return False, "Admin users cannot participate in MLM system", {}
+
             # Determine if this is activation or reactivation
             is_reactivation = user['is_mlm_active'] or user['activation_date'] is not None
             purchase_type = 'reactivation' if is_reactivation else 'activation'
@@ -186,25 +190,38 @@ class MLMService:
             purchase_id = cur.fetchone()[0]
             conn.commit()
 
-            # Get last N active users for commission
+            # CORRECT LOGIC: Pay commission to ONE user only (first with < 2 commissions)
             commission_limit = settings.get('commission_limit', 2)
-            active_users = MLMService.get_last_active_users(limit=commission_limit)
 
-            # Calculate and distribute commissions
+            # Find the first active user who has received < commission_limit commissions
+            cur.execute("""
+                SELECT mc.user_id, mc.position, mc.is_active,
+                       u.username, u.email, u.commission_received_count
+                FROM mlm_chain mc
+                JOIN users u ON mc.user_id = u.id
+                WHERE mc.is_active = true AND u.commission_received_count < %s
+                ORDER BY mc.position ASC
+                LIMIT 1
+            """, (commission_limit,))
+
+            receiver_row = cur.fetchone()
+
+            # Calculate and distribute commission
             commission_rate = settings.get('commission_rate', Decimal('0.15'))
             commission_amount = amount * commission_rate
             commissions_paid = []
 
-            for idx, active_user in enumerate(active_users):
-                receiver_id = active_user['user_id']
-                commission_level = idx + 1
+            # Only pay if there's a valid receiver
+            if receiver_row:
+                receiver_id = str(receiver_row[0])
+                receiver_username = receiver_row[3]
 
                 # Record commission
                 cur.execute("""
                     INSERT INTO commissions (receiver_id, payer_id, purchase_id, amount, commission_level, status)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING id
-                """, (receiver_id, user_id, purchase_id, float(commission_amount), commission_level, 'completed'))
+                """, (receiver_id, user_id, purchase_id, float(commission_amount), 1, 'completed'))
 
                 commission_id = cur.fetchone()[0]
                 conn.commit()
@@ -225,9 +242,9 @@ class MLMService:
                 commissions_paid.append({
                     'commission_id': str(commission_id),
                     'receiver_id': receiver_id,
-                    'receiver_username': active_user['username'],
+                    'receiver_username': receiver_username,
                     'amount': float(commission_amount),
-                    'level': commission_level,
+                    'level': 1,
                     'new_commission_count': new_count
                 })
 

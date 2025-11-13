@@ -1,19 +1,13 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Play,
   Eye,
   EyeOff,
   Edit2,
   Trash2,
   MoreVertical,
-  Heart,
-  Share2,
-  Clock,
-  Calendar,
   Video,
   Image as ImageIcon,
-  TrendingUp,
   Download,
   Copy
 } from 'lucide-react'
@@ -38,6 +32,11 @@ const ContentList: React.FC<ContentListProps> = ({
 }) => {
   const [selectedPosts, setSelectedPosts] = useState<string[]>([])
   const [showDropdown, setShowDropdown] = useState<string | null>(null)
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'single' | 'bulk'; postId?: string; postTitle?: string }>({
+    isOpen: false,
+    type: 'single'
+  })
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const togglePostSelection = (postId: string) => {
     setSelectedPosts(prev =>
@@ -55,6 +54,50 @@ const ContentList: React.FC<ContentListProps> = ({
     }
   }
 
+  const handleBulkDelete = () => {
+    if (selectedPosts.length === 0) return
+    setDeleteModal({ isOpen: true, type: 'bulk' })
+  }
+
+  const confirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      if (deleteModal.type === 'bulk') {
+        for (const postId of selectedPosts) {
+          await onDelete(postId)
+        }
+        setSelectedPosts([])
+      } else if (deleteModal.postId) {
+        await onDelete(deleteModal.postId)
+      }
+    } finally {
+      setIsDeleting(false)
+      setDeleteModal({ isOpen: false, type: 'single' })
+    }
+  }
+
+  const handleBulkPublish = async () => {
+    if (selectedPosts.length === 0) return
+
+    for (const postId of selectedPosts) {
+      await onTogglePublish(postId)
+    }
+    setSelectedPosts([])
+  }
+
+  const handleBulkUnpublish = async () => {
+    if (selectedPosts.length === 0) return
+
+    for (const postId of selectedPosts) {
+      await onTogglePublish(postId)
+    }
+    setSelectedPosts([])
+  }
+
+  const handleSingleDelete = (postId: string, postTitle: string) => {
+    setDeleteModal({ isOpen: true, type: 'single', postId, postTitle })
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -62,12 +105,6 @@ const ContentList: React.FC<ContentListProps> = ({
       day: 'numeric',
       year: 'numeric'
     })
-  }
-
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
   if (isLoading) {
@@ -95,6 +132,18 @@ const ContentList: React.FC<ContentListProps> = ({
     )
   }
 
+  // Check if any selected posts are unpublished (to show Publish button)
+  const hasUnpublishedSelected = selectedPosts.some(id => {
+    const post = posts.find(p => p.id === id)
+    return post && !post.is_published
+  })
+
+  // Check if any selected posts are published (to show Unpublish button)
+  const hasPublishedSelected = selectedPosts.some(id => {
+    const post = posts.find(p => p.id === id)
+    return post && post.is_published
+  })
+
   return (
     <div>
       {/* Bulk Actions Bar */}
@@ -108,13 +157,26 @@ const ContentList: React.FC<ContentListProps> = ({
             {selectedPosts.length} item{selectedPosts.length !== 1 ? 's' : ''} selected
           </span>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 text-sm bg-white dark:bg-dark-800 rounded-lg hover:shadow-md transition-shadow">
-              Publish
-            </button>
-            <button className="px-3 py-1.5 text-sm bg-white dark:bg-dark-800 rounded-lg hover:shadow-md transition-shadow">
-              Unpublish
-            </button>
-            <button className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
+            {hasUnpublishedSelected && (
+              <button
+                onClick={handleBulkPublish}
+                className="px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Publish
+              </button>
+            )}
+            {hasPublishedSelected && (
+              <button
+                onClick={handleBulkUnpublish}
+                className="px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Unpublish
+              </button>
+            )}
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
               Delete
             </button>
           </div>
@@ -164,7 +226,7 @@ const ContentList: React.FC<ContentListProps> = ({
                         </button>
                       </div>
                       <button
-                        onClick={() => onDelete(post.id)}
+                        onClick={() => handleSingleDelete(post.id, post.title)}
                         className="p-2 rounded-full bg-red-500/80 backdrop-blur text-white hover:bg-red-600 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -220,24 +282,6 @@ const ContentList: React.FC<ContentListProps> = ({
                     {post.content}
                   </p>
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-xs text-dark-500">
-                    <div className="flex items-center gap-3">
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" />
-                        {post.views_count.toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5" />
-                        {post.likes_count.toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Share2 className="w-3.5 h-3.5" />
-                        {post.shares_count}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Footer */}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-light-200 dark:border-dark-700">
                     <span className="text-xs text-dark-500">
@@ -284,10 +328,9 @@ const ContentList: React.FC<ContentListProps> = ({
                 className="w-4 h-4 rounded border-dark-400 text-accent-bitcoin focus:ring-accent-bitcoin"
               />
             </div>
-            <div className="col-span-4">Content</div>
+            <div className="col-span-5">Content</div>
             <div className="col-span-2">Type</div>
-            <div className="col-span-2">Stats</div>
-            <div className="col-span-1">Status</div>
+            <div className="col-span-2">Status</div>
             <div className="col-span-1">Date</div>
             <div className="col-span-1">Actions</div>
           </div>
@@ -314,7 +357,7 @@ const ContentList: React.FC<ContentListProps> = ({
                   </div>
 
                   {/* Content */}
-                  <div className="md:col-span-4 flex items-center gap-3">
+                  <div className="md:col-span-5 flex items-center gap-3">
                     <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                       <img
                         src={post.thumbnail_url || post.media_url}
@@ -359,20 +402,8 @@ const ContentList: React.FC<ContentListProps> = ({
                     </span>
                   </div>
 
-                  {/* Stats */}
-                  <div className="md:col-span-2 flex items-center gap-3 text-sm text-dark-600 dark:text-dark-400">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" />
-                      {post.views_count.toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5" />
-                      {post.likes_count.toLocaleString()}
-                    </span>
-                  </div>
-
                   {/* Status */}
-                  <div className="md:col-span-1">
+                  <div className="md:col-span-2">
                     <button
                       onClick={() => onTogglePublish(post.id)}
                       className={`
@@ -428,7 +459,7 @@ const ContentList: React.FC<ContentListProps> = ({
                         <hr className="my-1 border-light-200 dark:border-dark-600" />
                         <button
                           onClick={() => {
-                            onDelete(post.id)
+                            handleSingleDelete(post.id, post.title)
                             setShowDropdown(null)
                           }}
                           className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
@@ -443,6 +474,63 @@ const ContentList: React.FC<ContentListProps> = ({
               </motion.div>
             ))}
           </AnimatePresence>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteModal({ isOpen: false, type: 'single' })}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-md bg-white dark:bg-dark-900 rounded-2xl shadow-2xl border border-light-200 dark:border-dark-700"
+          >
+            <div className="flex items-start justify-between p-6 border-b border-light-200 dark:border-dark-700">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-dark-900 dark:text-white">Delete Content</h2>
+                  <p className="text-sm text-dark-600 dark:text-dark-400 mt-1">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-dark-700 dark:text-dark-300 mb-4">
+                {deleteModal.type === 'bulk'
+                  ? `Are you sure you want to delete ${selectedPosts.length} item${selectedPosts.length !== 1 ? 's' : ''}?`
+                  : `Are you sure you want to delete "${deleteModal.postTitle}"?`
+                }
+              </p>
+            </div>
+            <div className="flex gap-3 p-6 pt-0">
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ isOpen: false, type: 'single' })}
+                disabled={isDeleting}
+                className="flex-1 bg-light-200 dark:bg-dark-800 text-dark-700 dark:text-dark-300 py-3 px-6 rounded-lg font-medium hover:bg-light-300 dark:hover:bg-dark-700 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-6 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

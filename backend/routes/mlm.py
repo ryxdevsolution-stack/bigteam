@@ -180,6 +180,90 @@ def check_referral(referral_code):
         return jsonify({'error': f'Failed to check referral: {str(e)}'}), 500
 
 
+@mlm_bp.route('/chain-with-commissions', methods=['GET'])
+def get_chain_with_commissions():
+    """Get chain with actual commission relationships from database"""
+    try:
+        from utils.db import get_db_connection, return_db_connection
+        conn = get_db_connection()
+        try:
+            cur = conn.cursor()
+
+            # Get all users in chain order (by activation date)
+            cur.execute("""
+                SELECT u.id, u.username, u.email, u.is_mlm_active,
+                       u.commission_received_count, u.activation_date, u.created_at
+                FROM users u
+                WHERE u.activation_date IS NOT NULL AND u.role != 'admin'
+                ORDER BY u.activation_date ASC
+            """)
+            users_rows = cur.fetchall()
+
+            users_data = []
+            for idx, row in enumerate(users_rows):
+                user_id = str(row[0])
+
+                # Get who THIS user pays commission TO
+                cur.execute("""
+                    SELECT c.receiver_id, u2.username, c.amount
+                    FROM commissions c
+                    JOIN users u2 ON c.receiver_id = u2.id
+                    WHERE c.payer_id = %s
+                    ORDER BY c.created_at ASC
+                    LIMIT 1
+                """, (user_id,))
+                pays_to_row = cur.fetchone()
+                pays_to = None
+                if pays_to_row:
+                    pays_to = {
+                        'user_id': str(pays_to_row[0]),
+                        'username': pays_to_row[1],
+                        'amount': float(pays_to_row[2])
+                    }
+
+                # Get who has paid TO this user
+                cur.execute("""
+                    SELECT c.payer_id, u2.username, c.amount
+                    FROM commissions c
+                    JOIN users u2 ON c.payer_id = u2.id
+                    WHERE c.receiver_id = %s
+                    ORDER BY c.created_at ASC
+                """, (user_id,))
+                received_from_rows = cur.fetchall()
+                received_from = [{
+                    'user_id': str(r[0]),
+                    'username': r[1],
+                    'amount': float(r[2])
+                } for r in received_from_rows]
+
+                users_data.append({
+                    'position': idx + 1,
+                    'user_id': user_id,
+                    'username': row[1],
+                    'email': row[2],
+                    'is_active': row[3],
+                    'commission_received_count': row[4],
+                    'activation_date': row[5].isoformat() if row[5] else None,
+                    'created_at': row[6].isoformat() if row[6] else None,
+                    'pays_commission_to': pays_to,
+                    'received_commissions_from': received_from
+                })
+
+            cur.close()
+
+            return jsonify({
+                'success': True,
+                'chain': users_data,
+                'total': len(users_data)
+            }), 200
+
+        finally:
+            return_db_connection(conn)
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch chain with commissions: {str(e)}'}), 500
+
+
 @mlm_bp.route('/stats/global', methods=['GET'])
 def get_global_stats():
     """Get global MLM statistics (for admin dashboard)"""

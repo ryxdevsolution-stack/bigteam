@@ -3,7 +3,6 @@ import { useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import DashboardLayout from './components/dashboard/Layout/DashboardLayout'
 import Dashboard from './pages/admin/Dashboard'
-import UserManagement from './pages/admin/UserManagement'
 import ContentManagement from './pages/admin/ContentManagement'
 import UserTreeView from './pages/admin/UserTreeView'
 import CustomerOverview from './pages/admin/CustomerOverview'
@@ -33,7 +32,6 @@ function App() {
 
           <Route path="/admin" element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="users" element={<UserManagement />} />
             <Route path="customers" element={<CustomerOverview />} />
             <Route path="content" element={<ContentManagement />} />
             <Route path="ads" element={<AdManagement />} />

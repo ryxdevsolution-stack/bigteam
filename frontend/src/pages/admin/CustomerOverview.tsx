@@ -19,16 +19,22 @@ import {
   Activity,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  UserPlus,
+  Edit,
+  Trash2
 } from 'lucide-react'
-import { userService } from '../../services/userService'
+import { userService, CreateUserPayload } from '../../services/userService'
 import MetricCard from '../../components/dashboard/Cards/MetricCard'
 import CustomerDetailModal from '../../components/admin/CustomerDetailModal'
+import CreateUserForm from '../../components/dashboard/Users/CreateUserForm'
+import EditUserModal from '../../components/dashboard/Users/EditUserModal'
+import DeleteConfirmModal from '../../components/dashboard/Users/DeleteConfirmModal'
 
 interface CustomerData {
   id: string
   full_name: string
-  username: string
+  username?: string
   email: string
   role: 'admin' | 'customer'
   is_active: boolean
@@ -37,7 +43,7 @@ interface CustomerData {
   sponsored_by?: string
   is_mlm_active: boolean
   total_earnings: number
-  referral_code: string
+  referral_code?: string
   activation_date?: string
   amount: number
 }
@@ -51,7 +57,10 @@ interface CustomerStats {
   mlmActiveCount: number
 }
 
+type TabType = 'view' | 'create'
+
 const CustomerOverview: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('view')
   const [customers, setCustomers] = useState<CustomerData[]>([])
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerData[]>([])
   const [loading, setLoading] = useState(false)
@@ -66,8 +75,16 @@ const CustomerOverview: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [filterMLM, setFilterMLM] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterRole, setFilterRole] = useState<'all' | 'customer' | 'admin'>('all')
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [editUser, setEditUser] = useState<CustomerData | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<CustomerData | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCustomers()
@@ -75,7 +92,7 @@ const CustomerOverview: React.FC = () => {
 
   useEffect(() => {
     applyFilters()
-  }, [customers, searchTerm, filterStatus, filterMLM])
+  }, [customers, searchTerm, filterStatus, filterMLM, filterRole])
 
   const fetchCustomers = async () => {
     setLoading(true)
@@ -83,10 +100,8 @@ const CustomerOverview: React.FC = () => {
       const response = await userService.getAllUsers()
       const allUsers = response.data || []
 
-      // Filter only customers (exclude admins)
-      const customerData = allUsers.filter((user: CustomerData) => user.role === 'customer')
-      setCustomers(customerData)
-      calculateStats(customerData)
+      setCustomers(allUsers)
+      calculateStats(allUsers.filter((user: CustomerData) => user.role === 'customer'))
     } catch (error) {
       console.error('Error fetching customers:', error)
     } finally {
@@ -120,6 +135,11 @@ const CustomerOverview: React.FC = () => {
 
   const applyFilters = () => {
     let filtered = [...customers]
+
+    // Apply role filter
+    if (filterRole !== 'all') {
+      filtered = filtered.filter(customer => customer.role === filterRole)
+    }
 
     // Apply search filter
     if (searchTerm) {
@@ -169,9 +189,75 @@ const CustomerOverview: React.FC = () => {
     setShowDetailModal(true)
   }
 
+  const handleCreateUser = async (userData: CreateUserPayload) => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await userService.createUser(userData)
+      setSuccess(`User "${userData.full_name}" created successfully!`)
+
+      // Switch to view tab and refresh users list
+      setActiveTab('view')
+      await fetchCustomers()
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+
+      return response
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to create user'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (user: CustomerData) => {
+    setEditUser(user)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async (userId: string, data: Partial<CustomerData>) => {
+    await userService.updateUser(userId, data)
+    await fetchCustomers()
+    setIsEditModalOpen(false)
+    setEditUser(null)
+  }
+
+  const handleDelete = (user: CustomerData) => {
+    setUserToDelete(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await userService.deleteUser(userToDelete.id)
+      setIsDeleteModalOpen(false)
+      setUserToDelete(null)
+      await fetchCustomers()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete user')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleCloseDeleteModal = () => {
+    if (!isDeleting) {
+      setIsDeleteModalOpen(false)
+      setUserToDelete(null)
+    }
+  }
+
   const handleExportData = () => {
     // Convert customers to CSV
-    const headers = ['ID', 'Name', 'Email', 'Username', 'Status', 'MLM Active', 'Total Earnings', 'Referral Code', 'Created Date']
+    const headers = ['ID', 'Name', 'Email', 'Username', 'Role', 'Status', 'MLM Active', 'Total Earnings', 'Referral Code', 'Created Date']
     const csvContent = [
       headers.join(','),
       ...filteredCustomers.map(c => [
@@ -179,6 +265,7 @@ const CustomerOverview: React.FC = () => {
         `"${c.full_name}"`,
         c.email,
         c.username,
+        c.role,
         c.is_active ? 'Active' : 'Inactive',
         c.is_mlm_active ? 'Yes' : 'No',
         c.total_earnings || 0,
@@ -191,7 +278,7 @@ const CustomerOverview: React.FC = () => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `customers-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `users-${new Date().toISOString().split('T')[0]}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -206,36 +293,74 @@ const CustomerOverview: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-900 rounded-2xl p-4 sm:p-6 shadow-lg border border-light-200 dark:border-dark-700"
       >
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-accent-bitcoin to-accent-orange bg-clip-text text-transparent">
-              Customer Overview
-            </h1>
-            <p className="text-sm text-dark-600 dark:text-dark-400 mt-1">
-              Complete view of all customer accounts and their details
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-accent-bitcoin to-accent-orange bg-clip-text text-transparent">
+                User Management
+              </h1>
+              <p className="text-sm text-dark-600 dark:text-dark-400 mt-1">
+                Create and manage all platform users and customer accounts
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveTab('view')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                  activeTab === 'view'
+                    ? 'bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white shadow-lg'
+                    : 'bg-light-100 dark:bg-dark-800 hover:bg-light-200 dark:hover:bg-dark-700'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">View Users</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('create')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                  activeTab === 'create'
+                    ? 'bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white shadow-lg'
+                    : 'bg-light-100 dark:bg-dark-800 hover:bg-light-200 dark:hover:bg-dark-700'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden sm:inline">Create User</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={fetchCustomers}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-100 dark:bg-dark-800 hover:bg-light-200 dark:hover:bg-dark-700 transition-all disabled:opacity-50"
+          {/* Success/Error Messages */}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-            <button
-              onClick={handleExportData}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white hover:shadow-lg transition-all"
+              <p className="text-sm text-green-800 dark:text-green-300">{success}</p>
+            </motion.div>
+          )}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg"
             >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
-          </div>
+              <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+            </motion.div>
+          )}
         </div>
       </motion.div>
 
+      {activeTab === 'create' ? (
+        <CreateUserForm
+          onSubmit={handleCreateUser}
+          loading={loading}
+          error={error}
+          onClearError={() => setError(null)}
+        />
+      ) : (
+        <>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <MetricCard
@@ -283,54 +408,91 @@ const CustomerOverview: React.FC = () => {
         />
       </div>
 
-      {/* Search and Filters */}
+      {/* Actions and Filters */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="bg-white dark:bg-dark-900 rounded-2xl p-4 shadow-lg border border-light-200 dark:border-dark-700"
       >
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
-            <input
-              type="text"
-              placeholder="Search by name, email, username, or referral code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
-            />
+        <div className="flex flex-col gap-4">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button
+              onClick={fetchCustomers}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-100 dark:bg-dark-800 hover:bg-light-200 dark:hover:bg-dark-700 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              onClick={handleExportData}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white hover:shadow-lg transition-all"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
           </div>
 
-          {/* Status Filter */}
-          <div className="relative min-w-[160px]">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-              className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
-          </div>
+          {/* Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+              <input
+                type="text"
+                placeholder="Search by name, email, username, or referral code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
+              />
+            </div>
 
-          {/* MLM Filter */}
-          <div className="relative min-w-[160px]">
-            <Activity className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
-            <select
-              value={filterMLM}
-              onChange={(e) => setFilterMLM(e.target.value as 'all' | 'active' | 'inactive')}
-              className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
-            >
-              <option value="all">MLM Status</option>
-              <option value="active">MLM Active</option>
-              <option value="inactive">MLM Inactive</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
+            {/* Role Filter */}
+            <div className="relative min-w-[160px]">
+              <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+              <select
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value as 'all' | 'customer' | 'admin')}
+                className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
+              >
+                <option value="all">All Roles</option>
+                <option value="customer">Customer</option>
+                <option value="admin">Admin</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
+            </div>
+
+            {/* Status Filter */}
+            <div className="relative min-w-[160px]">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
+            </div>
+
+            {/* MLM Filter */}
+            <div className="relative min-w-[160px]">
+              <Activity className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+              <select
+                value={filterMLM}
+                onChange={(e) => setFilterMLM(e.target.value as 'all' | 'active' | 'inactive')}
+                className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
+              >
+                <option value="all">MLM Status</option>
+                <option value="active">MLM Active</option>
+                <option value="inactive">MLM Inactive</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -482,13 +644,29 @@ const CustomerOverview: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center justify-center">
+                        <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleViewCustomer(customer)}
                             className="p-2 rounded-lg hover:bg-light-100 dark:hover:bg-dark-700 transition-colors group"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4 text-dark-600 dark:text-dark-400 group-hover:text-accent-bitcoin" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(customer)}
+                            className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group"
+                            title="Edit User"
+                            disabled={isDeleting}
+                          >
+                            <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(customer)}
+                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group disabled:opacity-50"
+                            title="Delete User"
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300" />
                           </button>
                         </div>
                       </td>
@@ -572,12 +750,34 @@ const CustomerOverview: React.FC = () => {
                   </div>
 
                   <div className="pt-3 border-t border-light-200 dark:border-dark-700">
-                    <button
-                      onClick={() => handleViewCustomer(customer)}
-                      className="w-full px-4 py-2 text-sm bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white rounded-lg hover:shadow-lg transition-all"
-                    >
-                      View Full Details
-                    </button>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleViewCustomer(customer)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-accent-bitcoin/10 text-accent-bitcoin rounded-lg hover:bg-accent-bitcoin/20 transition-all"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span className="hidden sm:inline">View</span>
+                      </button>
+                      <button
+                        onClick={() => handleEdit(customer)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/20 transition-all disabled:opacity-50"
+                        title="Edit User"
+                        disabled={isDeleting}
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(customer)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 text-sm bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-all disabled:opacity-50"
+                        title="Delete User"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -599,6 +799,30 @@ const CustomerOverview: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditUser(null)
+          }}
+          onSave={handleSaveEdit}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        user={userToDelete}
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
+      </>
+      )}
     </div>
   )
 }

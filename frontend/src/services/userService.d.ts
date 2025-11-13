@@ -6,6 +6,7 @@ export interface CreateUserPayload {
     password: string;
     role?: 'customer' | 'admin';
     referred_by?: string;
+    amount?: number;
 }
 export interface DashboardStats {
     user: User;

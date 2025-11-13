@@ -365,6 +365,83 @@ def get_post(post_id):
         print(f"Database error: {str(e)}")
         return jsonify({"error": "Failed to fetch post"}), 500
 
+@post_bp.route("/api/admin/posts/<post_id>", methods=["PUT", "PATCH"])
+def update_post(post_id):
+    """Update post (including publish/unpublish status)"""
+    conn = None
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Build dynamic update query with allowed fields
+        allowed_fields = ['title', 'content', 'is_published', 'thumbnail_url']
+        update_fields = {k: v for k, v in data.items() if k in allowed_fields}
+
+        if not update_fields:
+            return jsonify({"error": "No valid fields to update"}), 400
+
+        # Build SET clause dynamically
+        set_parts = []
+        values = []
+        for key, value in update_fields.items():
+            set_parts.append(f"{key} = %s")
+            values.append(value)
+
+        set_clause = ', '.join(set_parts)
+        values.append(post_id)
+
+        # Execute update with RETURNING clause to get updated post
+        cur.execute(f"""
+            UPDATE posts
+            SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            RETURNING id, title, content, media_type, media_url, thumbnail_url,
+                      created_by, created_at, updated_at, is_published,
+                      likes_count, shares_count, views_count
+        """, values)
+
+        updated_post = cur.fetchone()
+
+        if not updated_post:
+            cur.close()
+            return_db_connection(conn)
+            return jsonify({"error": "Post not found"}), 404
+
+        conn.commit()
+
+        # Format response
+        response_data = {
+            "id": str(updated_post[0]),
+            "title": updated_post[1],
+            "content": updated_post[2],
+            "media_type": updated_post[3],
+            "media_url": updated_post[4],
+            "thumbnail_url": updated_post[5] or updated_post[4],
+            "created_by": str(updated_post[6]) if updated_post[6] else None,
+            "created_at": updated_post[7].isoformat() if updated_post[7] else None,
+            "updated_at": updated_post[8].isoformat() if updated_post[8] else None,
+            "is_published": updated_post[9],
+            "likes_count": updated_post[10] or 0,
+            "shares_count": updated_post[11] or 0,
+            "views_count": updated_post[12] or 0
+        }
+
+        cur.close()
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        print(f"Database error in update_post: {str(e)}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": "Failed to update post", "details": str(e)}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
+
 @post_bp.route("/api/posts/<post_id>", methods=["DELETE"])
 def delete_post(post_id):
     """Delete a post from database"""

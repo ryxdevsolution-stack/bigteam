@@ -209,13 +209,46 @@ CREATE TABLE advertisements (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- User interactions table
-CREATE TABLE user_interactions (
+-- MLM Chain table
+CREATE TABLE mlm_chain (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    position INT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    deactivated_at TIMESTAMP
+);
+
+-- Purchases table
+CREATE TABLE purchases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    post_id UUID REFERENCES posts(id),
-    interaction_type VARCHAR(20) NOT NULL, -- 'like', 'share', 'view'
+    product_name VARCHAR(200) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    purchase_type VARCHAR(20) NOT NULL, -- 'activation', 'reactivation'
+    status VARCHAR(20) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Commissions table
+CREATE TABLE commissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    receiver_id UUID REFERENCES users(id),
+    payer_id UUID REFERENCES users(id),
+    purchase_id UUID REFERENCES purchases(id),
+    amount DECIMAL(10, 2) NOT NULL,
+    commission_level INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- MLM Settings table
+CREATE TABLE mlm_settings (
+    id SERIAL PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value VARCHAR(255) NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 ```
 

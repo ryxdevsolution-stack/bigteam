@@ -19,7 +19,9 @@
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
       "Bash(npm run typecheck:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx tsc:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

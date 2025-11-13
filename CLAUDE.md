@@ -79,10 +79,13 @@ docker build -t bigteam/frontend:latest ./frontend
 - Public: `/api/posts/*` - Public content endpoints
 
 ## Database Tables
-1. **users** - User accounts with roles (admin/user)
-2. **posts** - Content posts (videos/images)
-3. **advertisements** - Ad management
-4. **user_interactions** - Likes, shares, views
+1. **users** - User accounts with roles (admin/customer) and MLM tracking
+2. **posts** - Content posts (videos/images) with interaction counters
+3. **advertisements** - Ad management with scheduling
+4. **purchases** - MLM activation/reactivation purchase records
+5. **commissions** - Commission payment tracking between users
+6. **mlm_chain** - Linear chain position tracking for MLM system
+7. **mlm_settings** - Configurable MLM system parameters
 
 ## Environment Variables Required
 - Backend: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `JWT_SECRET_KEY`, `REDIS_URL`

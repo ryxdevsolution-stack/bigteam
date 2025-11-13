@@ -12,13 +12,8 @@ import {
   Share2,
   Edit2,
   Save,
-  Eye,
-  Heart,
-  MessageCircle,
   SkipBack,
-  SkipForward,
-  Settings,
-  Info
+  SkipForward
 } from 'lucide-react'
 import { Post } from '../../../types/post'
 
@@ -409,9 +404,9 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ post, onClose, onSave }) =>
           {/* Info Section */}
           {!isFullscreen && (
             <div className="p-6 bg-white dark:bg-dark-900">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 {/* Description */}
-                <div className="lg:col-span-2">
+                <div>
                   <h4 className="text-sm font-semibold text-dark-700 dark:text-dark-300 mb-2">Description</h4>
                   {isEditing ? (
                     <textarea
@@ -423,40 +418,6 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ post, onClose, onSave }) =>
                   ) : (
                     <p className="text-dark-600 dark:text-dark-400">{editedPost.content}</p>
                   )}
-                </div>
-
-                {/* Stats */}
-                <div>
-                  <h4 className="text-sm font-semibold text-dark-700 dark:text-dark-300 mb-3">Engagement</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-2 bg-light-50 dark:bg-dark-800 rounded-lg">
-                      <span className="flex items-center gap-2 text-dark-600 dark:text-dark-400">
-                        <Eye className="w-4 h-4" />
-                        Views
-                      </span>
-                      <span className="font-semibold text-dark-900 dark:text-white">
-                        {post.views_count.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-light-50 dark:bg-dark-800 rounded-lg">
-                      <span className="flex items-center gap-2 text-dark-600 dark:text-dark-400">
-                        <Heart className="w-4 h-4" />
-                        Likes
-                      </span>
-                      <span className="font-semibold text-dark-900 dark:text-white">
-                        {post.likes_count.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-light-50 dark:bg-dark-800 rounded-lg">
-                      <span className="flex items-center gap-2 text-dark-600 dark:text-dark-400">
-                        <Share2 className="w-4 h-4" />
-                        Shares
-                      </span>
-                      <span className="font-semibold text-dark-900 dark:text-white">
-                        {post.shares_count.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </div>
 

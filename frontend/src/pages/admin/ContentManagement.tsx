@@ -7,7 +7,6 @@ import {
   Video,
   Image,
   Eye,
-  TrendingUp,
   RefreshCw
 } from 'lucide-react'
 import MediaUpload from '../../components/dashboard/Content/MediaUpload'
@@ -26,14 +25,14 @@ const ContentManagement: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([])
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most-viewed' | 'most-liked'>('newest')
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest')
 
   // Stats for dashboard
   const stats = {
     totalPosts: posts.length,
     publishedPosts: posts.filter(p => p.is_published).length,
-    totalViews: posts.reduce((acc, post) => acc + post.views_count, 0),
-    totalEngagement: posts.reduce((acc, post) => acc + post.likes_count + post.shares_count, 0)
+    draftPosts: posts.filter(p => !p.is_published).length,
+    totalVideos: posts.filter(p => p.media_type === 'video').length
   }
 
   // Load posts on component mount - will use cached data if available
@@ -64,10 +63,6 @@ const ContentManagement: React.FC = () => {
       switch (sortBy) {
         case 'oldest':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        case 'most-viewed':
-          return b.views_count - a.views_count
-        case 'most-liked':
-          return b.likes_count - a.likes_count
         case 'newest':
         default:
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -174,24 +169,24 @@ const ContentManagement: React.FC = () => {
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-medium">Total Views</p>
+                  <p className="text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-medium">Draft</p>
                   <p className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-300 mt-1">
-                    {stats.totalViews.toLocaleString()}
+                    {stats.draftPosts}
                   </p>
                 </div>
-                <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-purple-500 opacity-50" />
+                <Eye className="w-8 h-8 sm:w-10 sm:h-10 text-purple-500 opacity-50" />
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400 font-medium">Engagement</p>
+                  <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400 font-medium">Videos</p>
                   <p className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-300 mt-1">
-                    {stats.totalEngagement.toLocaleString()}
+                    {stats.totalVideos}
                   </p>
                 </div>
-                <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500 opacity-50" />
+                <Video className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500 opacity-50" />
               </div>
             </div>
           </div>

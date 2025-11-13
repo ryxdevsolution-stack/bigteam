@@ -24,7 +24,7 @@ interface CustomerDetailModalProps {
   customer: {
     id: string
     full_name: string
-    username: string
+    username?: string
     email: string
     role: string
     is_active: boolean
@@ -33,7 +33,7 @@ interface CustomerDetailModalProps {
     sponsored_by?: string
     is_mlm_active: boolean
     total_earnings: number
-    referral_code: string
+    referral_code?: string
     activation_date?: string
     amount: number
   }

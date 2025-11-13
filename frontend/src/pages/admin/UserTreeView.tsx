@@ -14,6 +14,18 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 
+interface CommissionPayer {
+  user_id: string;
+  username: string;
+  amount: number;
+}
+
+interface CommissionReceiver {
+  user_id: string;
+  username: string;
+  amount: number;
+}
+
 interface ChainUser {
   position: number;
   user_id: string;
@@ -22,20 +34,39 @@ interface ChainUser {
   username: string;
   email: string;
   commission_received_count: number;
-  is_mlm_active?: boolean;
-  role?: string;
+  activation_date: string;
+  pays_commission_to: CommissionReceiver | null;
+  received_commissions_from: CommissionPayer[];
 }
 
 const UserTreeView: React.FC = () => {
   const [chainUsers, setChainUsers] = useState<ChainUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
+  const [commissionAmount, setCommissionAmount] = useState<number>(0);
 
   useEffect(() => {
     if (!hasFetched) {
       fetchChainData();
+      fetchMLMSettings();
     }
   }, [hasFetched]);
+
+  const fetchMLMSettings = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/user/settings/mlm`);
+      if (response.ok) {
+        const data = await response.json();
+        const settings = data.settings;
+        // Calculate commission amount: activation_amount * commission_rate
+        const commission = parseFloat(settings.activation_amount) * parseFloat(settings.commission_rate);
+        setCommissionAmount(commission);
+      }
+    } catch (error) {
+      console.error('Failed to fetch MLM settings:', error);
+    }
+  };
 
   const fetchChainData = async () => {
     try {
@@ -43,128 +74,128 @@ const UserTreeView: React.FC = () => {
       setHasFetched(true);
       const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-      // Fetch all users instead of just MLM chain
-      const response = await fetch(`${apiUrl}/auth/admin/users`);
+      // Fetch chain with REAL commission data from database
+      const response = await fetch(`${apiUrl}/api/mlm/chain-with-commissions`);
       if (response.ok) {
-        const users = await response.json();
+        const data = await response.json();
 
-        // Sort users by creation date (earliest first) and filter active users only
-        const sortedUsers = users
-          .sort((a: any, b: any) => {
-            const dateA = new Date(a.created_at).getTime();
-            const dateB = new Date(b.created_at).getTime();
-            return dateA - dateB;
-          })
-          .filter((user: any) => {
-            // Only show users who haven't completed their cycle (received less than 2 commissions)
-            const commissionCount = user.commission_received_count || 0;
-            return commissionCount < 2;
-          })
-          .map((user: any, index: number) => ({
-            position: index + 1,
-            user_id: user.id,
-            is_active: user.is_mlm_active || false,
-            created_at: user.created_at,
-            username: user.username,
-            email: user.email,
-            commission_received_count: user.commission_received_count || 0,
-            is_mlm_active: user.is_mlm_active || false,
-            role: user.role
-          }));
-
-        setChainUsers(sortedUsers);
+        if (data.success && data.chain) {
+          // Use the real commission data directly from the API
+          setChainUsers(data.chain);
+        } else {
+          console.error('Invalid response format:', data);
+        }
       } else {
-        console.error('Failed to fetch users:', response.status, response.statusText);
+        console.error('Failed to fetch chain:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      console.error('Failed to fetch chain:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const ChainNode = ({ user, index, showConnectionLine, allUsers }: { user: ChainUser; index: number; showConnectionLine: boolean; allUsers: ChainUser[] }) => {
+  const ChainNode = ({ user, index, showConnectionLine, allUsers, commissionAmount }: { user: ChainUser; index: number; showConnectionLine: boolean; allUsers: ChainUser[]; commissionAmount: number }) => {
     const commissionLimit = 2; // From MLM settings
     const isInactive = user.commission_received_count >= commissionLimit;
 
-    // Find the 2 active users before this user who would receive commissions
-    const usersBeforeThis = allUsers.slice(0, index);
-    const activeUsersBeforeThis = usersBeforeThis.filter(u => u.is_mlm_active);
-    const commissionReceivers = activeUsersBeforeThis.slice(-2); // Last 2 active users
+    // Use REAL commission data from the API
+    const commissionReceiver = user.pays_commission_to;
+    const commissionPayers = user.received_commissions_from || [];
 
     return (
-      <div className="relative flex items-center justify-center">
+      <div className="relative flex flex-col items-center justify-center">
         {/* Vertical connecting line to previous user */}
         {showConnectionLine && (
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-12 -mt-12 bg-gradient-to-b from-accent-bitcoin/60 to-accent-bitcoin/20" />
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-8 -mt-8 bg-gradient-to-b from-accent-bitcoin/60 to-accent-bitcoin/20" />
         )}
 
-        {/* Main chain node container */}
-        <div className="flex items-center gap-4 w-full max-w-2xl">
-          {/* Position number badge */}
-          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center font-bold text-white shadow-lg">
-            {user.position}
-          </div>
-
-          {/* User Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05 }}
-            className={`flex-1 flex items-center gap-3 p-4 rounded-xl shadow-lg border-2 ${
-              isInactive
-                ? 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 border-gray-400/50 dark:border-gray-600/50'
-                : user.is_active
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-500/50'
-                : 'bg-white dark:bg-dark-800 border-dark-200 dark:border-dark-700'
-            }`}
-          >
-            {/* User Avatar */}
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 shadow-md relative ${
-              isInactive
-                ? 'bg-gradient-to-br from-gray-400 to-gray-500'
-                : user.is_active
-                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                : 'bg-gradient-to-br from-blue-400 to-blue-500'
-            }`}>
-              <Users className="w-7 h-7 text-white" />
-              {/* Commission count badge */}
-              {user.commission_received_count > 0 && (
-                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-accent-bitcoin flex items-center justify-center text-xs font-bold text-white shadow-md">
-                  {user.commission_received_count}
-                </div>
-              )}
+        {/* Main chain node container - Centered */}
+        <div className="w-full max-w-4xl">
+          {/* User Card Container */}
+          <div className="flex items-center gap-4 w-full">
+            {/* Position number badge */}
+            <div className="flex-shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center font-bold text-white shadow-lg text-lg">
+              {user.position}
             </div>
 
-            {/* User Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-base font-bold text-dark-900 dark:text-white truncate">
-                  {user.username}
-                </h3>
-                {user.is_active ? (
-                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                )}
-                {isInactive && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 flex-shrink-0">
-                    Cycle Complete
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <div className="flex items-center gap-1 text-dark-600 dark:text-dark-300">
-                  <Mail className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate">{user.email}</span>
+            {/* User Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.05 }}
+              className={`flex-1 flex flex-col gap-3 p-5 rounded-xl shadow-lg border-2 ${
+                isInactive
+                  ? 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 border-gray-400/50 dark:border-gray-600/50'
+                  : user.is_active
+                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-500/50'
+                  : 'bg-white dark:bg-dark-800 border-dark-200 dark:border-dark-700'
+              }`}
+            >
+              {/* Top Row - Avatar and Main Info */}
+              <div className="flex items-center gap-4">
+                {/* User Avatar */}
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 shadow-md relative ${
+                  isInactive
+                    ? 'bg-gradient-to-br from-gray-400 to-gray-500'
+                    : user.is_active
+                    ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                    : 'bg-gradient-to-br from-blue-400 to-blue-500'
+                }`}>
+                  <Users className="w-8 h-8 text-white" />
+                  {/* Commission count badge */}
+                  {user.commission_received_count > 0 && (
+                    <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-accent-bitcoin flex items-center justify-center text-xs font-bold text-white shadow-md">
+                      {user.commission_received_count}
+                    </div>
+                  )}
                 </div>
 
-                <span className="text-dark-500 dark:text-dark-400 text-xs flex-shrink-0">
+                {/* User Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-bold text-dark-900 dark:text-white truncate">
+                      {user.username}
+                    </h3>
+                    {user.is_active ? (
+                      <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                    )}
+                    {isInactive && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 flex-shrink-0">
+                        Cycle Complete
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-dark-600 dark:text-dark-300">
+                    <Mail className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{user.email}</span>
+                  </div>
+                </div>
+
+                {/* Status indicator */}
+                <div className="flex-shrink-0">
+                  {isInactive ? (
+                    <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                      ✓
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center shadow-md">
+                      <LinkIcon className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Row - Status Tags */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-dark-500 dark:text-dark-400 text-sm flex-shrink-0">
                   Joined: {new Date(user.created_at).toLocaleDateString()}
                 </span>
 
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold flex-shrink-0 ${
                   user.is_active
                     ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                     : 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300'
@@ -172,46 +203,78 @@ const UserTreeView: React.FC = () => {
                   {user.is_active ? 'Active in Chain' : 'Inactive'}
                 </span>
 
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-bitcoin/20 text-accent-bitcoin dark:text-accent-gold flex-shrink-0">
-                  <TrendingUp className="w-3 h-3" />
+                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-accent-bitcoin/20 text-accent-bitcoin dark:text-accent-gold flex-shrink-0">
+                  <DollarSign className="w-4 h-4" />
                   {user.commission_received_count}/{commissionLimit} Commissions
                 </span>
               </div>
-            </div>
 
-            {/* Status indicator */}
-            <div className="flex-shrink-0">
-              {isInactive ? (
-                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                  ✓
-                </div>
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-md">
-                  <LinkIcon className="w-5 h-5 text-white" />
-                </div>
-              )}
-            </div>
-          </motion.div>
+              {/* Commission Flow Info */}
+              <div className="mt-2 space-y-2">
+                {/* Who this user pays to */}
+                {commissionReceiver && (
+                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30">
+                    <p className="text-sm text-red-700 dark:text-red-300 mb-2 font-semibold flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Pays Commission To:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <div
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-dark-700 shadow-sm border border-red-200 dark:border-red-800"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center font-bold text-white text-xs">
+                          {allUsers.findIndex(u => u.user_id === commissionReceiver.user_id) + 1}
+                        </div>
+                        <span className="text-sm font-semibold text-dark-900 dark:text-white">
+                          {commissionReceiver.username}
+                        </span>
+                        <span className="ml-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold">
+                          +${commissionReceiver.amount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-          {/* Commission flow info - show who would receive commissions from this user */}
-          {commissionReceivers.length > 0 && (
-            <div className="ml-16 mt-2 p-2 rounded-lg bg-accent-bitcoin/5 border border-accent-bitcoin/20">
-              <p className="text-xs text-dark-600 dark:text-dark-400 mb-1 font-semibold">
-                Pays commissions to positions:
-              </p>
-              <div className="flex gap-2">
-                {commissionReceivers.map((receiver) => (
-                  <span
-                    key={receiver.user_id}
-                    className="px-2 py-1 rounded-md bg-accent-bitcoin/10 text-accent-bitcoin text-xs font-semibold"
-                  >
-                    #{receiver.position} {receiver.username}
-                  </span>
-                ))}
+                {/* Who has paid to this user */}
+                {commissionPayers.length > 0 && (
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30">
+                    <p className="text-sm text-green-700 dark:text-green-300 mb-2 font-semibold flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Received Commissions From:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {commissionPayers.map((payer) => (
+                        <div
+                          key={payer.user_id}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-dark-700 shadow-sm border border-green-200 dark:border-green-800"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center font-bold text-white text-xs">
+                            {allUsers.findIndex(u => u.user_id === payer.user_id) + 1}
+                          </div>
+                          <span className="text-sm font-semibold text-dark-900 dark:text-white">
+                            {payer.username}
+                          </span>
+                          <span className="ml-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold">
+                            +${payer.amount.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            </motion.div>
+          </div>
         </div>
+
+        {/* Arrow down to next user */}
+        {index < allUsers.length - 1 && (
+          <div className="my-4 flex flex-col items-center">
+            <div className="w-0.5 h-8 bg-gradient-to-b from-accent-bitcoin/60 to-accent-bitcoin/20" />
+            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-accent-bitcoin/60" />
+          </div>
+        )}
       </div>
     );
   };
@@ -224,10 +287,10 @@ const UserTreeView: React.FC = () => {
     );
   }
 
-  const totalUsers = chainUsers.length; // Only active users in chain (not cycled out)
-  const activeUsers = chainUsers.filter(u => u.is_mlm_active).length;
-  const inactiveUsers = totalUsers - activeUsers;
-  const completedCycles = 0; // No cycled users shown in this view (they're filtered out)
+  const totalUsers = chainUsers.length;
+  const activeUsers = chainUsers.filter(u => u.commission_received_count < 2).length;
+  const completedCycles = chainUsers.filter(u => u.commission_received_count >= 2).length;
+  const inactiveUsers = totalUsers - activeUsers - completedCycles;
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4 sm:pb-8">
@@ -307,22 +370,28 @@ const UserTreeView: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg"
+        className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-lg"
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-1 h-10 bg-gradient-to-b from-accent-bitcoin to-accent-orange rounded-full" />
-            <h2 className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white">
+            <div className="w-1 h-12 bg-gradient-to-b from-accent-bitcoin to-accent-orange rounded-full" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-dark-900 dark:text-white">
               MLM Commission Chain
             </h2>
           </div>
-          <div className="text-sm text-dark-600 dark:text-dark-300">
+          <div className="text-base font-semibold text-accent-bitcoin">
             {totalUsers} {totalUsers === 1 ? 'Position' : 'Positions'}
           </div>
         </div>
 
         {chainUsers.length > 0 ? (
-          <div className="space-y-12 py-6">
+          <div
+            className="flex flex-col items-center py-6 max-h-[70vh] overflow-y-auto scrollbar-hide"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
             {chainUsers.map((user, index) => (
               <ChainNode
                 key={user.user_id}
@@ -330,16 +399,17 @@ const UserTreeView: React.FC = () => {
                 index={index}
                 showConnectionLine={index > 0}
                 allUsers={chainUsers}
+                commissionAmount={commissionAmount}
               />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <LinkIcon className="w-16 h-16 text-dark-300 dark:text-dark-600 mx-auto mb-4" />
-            <p className="text-dark-600 dark:text-dark-300 text-lg font-semibold">
+          <div className="text-center py-16">
+            <LinkIcon className="w-20 h-20 text-dark-300 dark:text-dark-600 mx-auto mb-6" />
+            <p className="text-dark-700 dark:text-dark-200 text-xl font-bold">
               No users in chain yet
             </p>
-            <p className="text-dark-500 dark:text-dark-400 text-sm mt-2">
+            <p className="text-dark-500 dark:text-dark-400 text-base mt-3">
               Users will appear here once they activate in the MLM system
             </p>
           </div>
@@ -355,7 +425,7 @@ const UserTreeView: React.FC = () => {
       >
         <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-2">Understanding the Linear Chain</h3>
         <p className="text-sm text-dark-600 dark:text-dark-300 mb-4">
-          Users join the chain sequentially. Each new member pays commissions to the last 2 active users before them. After receiving 2 commissions, users complete their cycle and are <span className="font-semibold text-accent-bitcoin">automatically hidden from the chain</span>. Only active users (0/2 or 1/2 commissions) are shown below.
+          Users join the chain sequentially. Each new member pays commission to ONE user only - the first active user before them who has received less than 2 commissions. After receiving 2 commissions, users complete their cycle and are <span className="font-semibold text-accent-bitcoin">shown as disabled with "Cycle Complete" badge</span>. All users remain visible in the chain.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="flex items-center gap-3">

@@ -1,4 +1,4 @@
-from utils.db import get_db_connection
+from utils.db import get_db_connection, return_db_connection
 from psycopg2.extras import RealDictCursor
 
 def create_user(full_name, email, username, password_hash, role='customer', amount=0.00):
@@ -9,27 +9,38 @@ def create_user(full_name, email, username, password_hash, role='customer', amou
     cur.execute("SELECT id FROM users WHERE email=%s", (email,))
     if cur.fetchone():
         cur.close()
-        conn.close()
+        return_db_connection(conn)
         return None, "Email already exists"
 
     # Check if username exists
     cur.execute("SELECT id FROM users WHERE username=%s", (username,))
     if cur.fetchone():
         cur.close()
-        conn.close()
+        return_db_connection(conn)
         return None, "Username already exists"
 
-    # Insert new user
+    # Insert new user - DON'T auto-activate MLM here
+    # MLM activation should be done through the MLM service which handles chain and commissions
     cur.execute("""
-        INSERT INTO users (full_name, username, email, password_hash, role, amount)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO users (full_name, username, email, password_hash, role, amount, is_mlm_active, activation_date, commission_received_count)
+        VALUES (%s, %s, %s, %s, %s, %s, false, NULL, 0)
         RETURNING id;
     """, (full_name, username, email, password_hash, role, amount))
 
     user_id = cur.fetchone()[0]
     conn.commit()
+
+    # If amount > 0 and not admin, activate in MLM system
+    if amount > 0 and role != 'admin':
+        from services.mlm_service import MLMService
+        from decimal import Decimal
+
+        success, message, data = MLMService.activate_user(str(user_id), Decimal(str(amount)))
+        if not success:
+            print(f"Warning: MLM activation failed for {username}: {message}")
+
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return user_id, None
 
 
@@ -40,7 +51,7 @@ def get_user_by_email(email):
     cur.execute("SELECT * FROM users WHERE email = %s", (email,))
     user = cur.fetchone()
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return user
 
 def get_user_by_username(username):
@@ -49,7 +60,7 @@ def get_user_by_username(username):
     cur.execute("SELECT * FROM users WHERE username = %s", (username,))
     user = cur.fetchone()
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return user
 
 def get_all_users():
@@ -64,7 +75,7 @@ def get_all_users():
     """)
     users = cur.fetchall()
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return users
 
 def get_user_by_id(user_id):
@@ -73,7 +84,7 @@ def get_user_by_id(user_id):
     cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return user
 
 def update_user(user_id, full_name=None, email=None, username=None, role=None, amount=None, is_active=None):
@@ -84,7 +95,7 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
     cur.execute("SELECT id FROM users WHERE id=%s", (user_id,))
     if not cur.fetchone():
         cur.close()
-        conn.close()
+        return_db_connection(conn)
         return None, "User not found"
 
     # Build dynamic update query
@@ -100,7 +111,7 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
         cur.execute("SELECT id FROM users WHERE email=%s AND id != %s", (email, user_id))
         if cur.fetchone():
             cur.close()
-            conn.close()
+            return_db_connection(conn)
             return None, "Email already exists"
         update_fields.append("email = %s")
         values.append(email)
@@ -110,7 +121,7 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
         cur.execute("SELECT id FROM users WHERE username=%s AND id != %s", (username, user_id))
         if cur.fetchone():
             cur.close()
-            conn.close()
+            return_db_connection(conn)
             return None, "Username already exists"
         update_fields.append("username = %s")
         values.append(username)
@@ -129,7 +140,7 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
 
     if not update_fields:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
         return None, "No fields to update"
 
     # Execute update
@@ -150,7 +161,7 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
     user = cur.fetchone()
 
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return user, None
 
 def delete_user(user_id):
@@ -161,12 +172,12 @@ def delete_user(user_id):
     cur.execute("SELECT id FROM users WHERE id=%s", (user_id,))
     if not cur.fetchone():
         cur.close()
-        conn.close()
+        return_db_connection(conn)
         return False, "User not found"
 
     # Delete user
     cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
     conn.commit()
     cur.close()
-    conn.close()
+    return_db_connection(conn)
     return True, None
