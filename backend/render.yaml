@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: bigteam-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DB_URL
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: FLASK_ENV
+        value: production
+      - key: FRONTEND_URL
+        sync: false
+    healthCheckPath: /health
