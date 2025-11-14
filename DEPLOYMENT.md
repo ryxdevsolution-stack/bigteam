@@ -17,8 +17,9 @@ This guide provides step-by-step instructions for deploying the BigTeam platform
 ### Step 1: Prepare Your Repository
 
 1. Ensure all changes are committed and pushed to your Git repository
-2. Verify [render.yaml](backend/render.yaml) exists in the `backend` directory
+2. Verify [render.yaml](render.yaml) exists in the root directory
 3. Verify [requirements.txt](backend/requirements.txt) includes `gunicorn==21.2.0`
+4. Verify `__init__.py` files exist in all backend package directories (routes, models, services, utils)
 
 ### Step 2: Create Render Web Service
 
@@ -32,13 +33,20 @@ This guide provides step-by-step instructions for deploying the BigTeam platform
    - Click "Connect"
 
 3. **Configure Service Settings**
+
+   **Option A: Using render.yaml (Recommended)**
+   - Render will auto-detect the [render.yaml](render.yaml) file
+   - All settings will be configured automatically
+   - Just review and confirm the settings
+
+   **Option B: Manual Configuration**
    - **Name**: `bigteam-backend` (or your preferred name)
    - **Region**: Choose closest to your users
    - **Branch**: `main` (or your production branch)
    - **Root Directory**: `backend`
    - **Runtime**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app`
+   - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 app:app`
 
 4. **Add Environment Variables**
 
@@ -420,8 +428,9 @@ jobs:
 - Preview: `https://your-app-git-branch.vercel.app`
 
 ### Important Files
-- Backend Config: [backend/render.yaml](backend/render.yaml)
+- Backend Config: [render.yaml](render.yaml) (root directory)
 - Backend App: [backend/app.py](backend/app.py)
+- Backend Packages: [backend/routes/__init__.py](backend/routes/__init__.py), [backend/models/__init__.py](backend/models/__init__.py), etc.
 - Frontend Config: [frontend/vercel.json](frontend/vercel.json)
 - Frontend Build: [frontend/vite.config.ts](frontend/vite.config.ts)
 - API Service: [frontend/src/services/api.ts](frontend/src/services/api.ts)

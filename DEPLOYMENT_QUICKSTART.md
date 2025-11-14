@@ -190,9 +190,10 @@ Just push to Git and deployments happen automatically!
 
 | File | Purpose |
 |------|---------|
-| [backend/render.yaml](backend/render.yaml) | Render configuration |
+| [render.yaml](render.yaml) | Render configuration (root directory) |
 | [backend/app.py](backend/app.py) | Flask app with CORS |
 | [backend/requirements.txt](backend/requirements.txt) | Python dependencies |
+| [backend/routes/__init__.py](backend/routes/__init__.py) | Python package init files |
 | [frontend/vercel.json](frontend/vercel.json) | Vercel configuration |
 | [frontend/vite.config.ts](frontend/vite.config.ts) | Vite build config |
 | [frontend/src/services/api.ts](frontend/src/services/api.ts) | API client |
