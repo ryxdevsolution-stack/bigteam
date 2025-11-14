@@ -27,15 +27,15 @@ interface CustomerDetailModalProps {
     username?: string
     email: string
     role: string
-    is_active: boolean
-    created_at: string
+    is_active?: boolean
+    created_at?: string
     updated_at?: string
     sponsored_by?: string
-    is_mlm_active: boolean
-    total_earnings: number
+    is_mlm_active?: boolean
+    total_earnings?: number
     referral_code?: string
     activation_date?: string
-    amount: number
+    amount?: number
   }
   onClose: () => void
   onRefresh: () => void
@@ -51,7 +51,7 @@ interface ReferralData {
   created_at: string
 }
 
-const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onClose, onRefresh }) => {
+const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onClose }) => {
   const [referrals, setReferrals] = useState<ReferralData[]>([])
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -262,7 +262,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onC
                     </p>
                     {customer.referral_code && (
                       <button
-                        onClick={() => copyToClipboard(customer.referral_code)}
+                        onClick={() => copyToClipboard(customer.referral_code || '')}
                         className="p-2 rounded-lg bg-light-100 dark:bg-dark-700 hover:bg-light-200 dark:hover:bg-dark-600 transition-colors"
                         title="Copy referral code"
                       >

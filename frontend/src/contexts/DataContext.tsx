@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { Post } from '../types/post'
 import { User } from '../types/user'
 import api from '../services/api'

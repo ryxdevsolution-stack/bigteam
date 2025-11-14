@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, User, ChevronDown, Moon, Sun, Settings, LogOut } from 'lucide-react';
+import { Search, User, ChevronDown, Moon, Sun, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 

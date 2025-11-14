@@ -82,7 +82,7 @@ const BarChart: React.FC<BarChartProps> = ({
       },
       yAxis: {
         title: {
-          text: null
+          text: undefined
         },
         labels: {
           style: {

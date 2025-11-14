@@ -93,7 +93,7 @@ const AreaChart: React.FC<AreaChartProps> = ({
       },
       yAxis: {
         title: {
-          text: null
+          text: undefined
         },
         labels: {
           style: {

@@ -76,8 +76,9 @@ const PieChart: React.FC<PieChartProps> = ({
           fontSize: '12px'
         },
         formatter: function() {
+          const point = this as any;
           const percentage = ((this.y as number) / total * 100).toFixed(1);
-          return `<b>${this.point.name}</b><br/>
+          return `<b>${point.name}</b><br/>
                   <span style="color:${this.color}">Value:</span> <b>${this.y?.toLocaleString()}</b><br/>
                   <span style="color:${this.color}">Percentage:</span> <b>${percentage}%</b>`;
         }
@@ -89,7 +90,7 @@ const PieChart: React.FC<PieChartProps> = ({
           depth: 35,
           innerSize: donut ? '50%' : '0%',
           borderWidth: 0,
-          borderColor: null,
+          borderColor: undefined,
           dataLabels: {
             enabled: true,
             distance: donut ? -30 : 10

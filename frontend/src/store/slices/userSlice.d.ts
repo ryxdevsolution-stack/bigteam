@@ -1,12 +1,13 @@
+import { CreateUserPayload } from '../../services/userService';
 import { User } from '../../types/user';
-interface UserState {
+export interface UserState {
     users: User[];
     selectedUser: User | null;
     loading: boolean;
     error: string | null;
 }
 export declare const fetchUsers: import("@reduxjs/toolkit").AsyncThunk<User[], void, import("@reduxjs/toolkit").AsyncThunkConfig>;
-export declare const createUser: import("@reduxjs/toolkit").AsyncThunk<any, Partial<User>, import("@reduxjs/toolkit").AsyncThunkConfig>;
+export declare const createUser: import("@reduxjs/toolkit").AsyncThunk<any, CreateUserPayload, import("@reduxjs/toolkit").AsyncThunkConfig>;
 export declare const updateUser: import("@reduxjs/toolkit").AsyncThunk<User, {
     id: string;
     data: Partial<User>;

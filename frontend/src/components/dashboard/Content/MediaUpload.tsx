@@ -1,9 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload,
   X,
-  File,
   Video,
   Image as ImageIcon,
   CheckCircle,
@@ -479,7 +477,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ onUploadComplete, onCancel })
           </div>
 
           {/* CSS Animations */}
-          <style jsx>{`
+          <style>{`
             @keyframes flicker {
               0% { opacity: 1; filter: brightness(1) drop-shadow(0 0 20px rgba(245, 158, 11, 0.5)); }
               10% { opacity: 0.95; filter: brightness(1.1) drop-shadow(0 0 25px rgba(245, 158, 11, 0.6)); }

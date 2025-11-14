@@ -21,7 +21,8 @@
       "Bash(npm run typecheck:*)",
       "Bash(find:*)",
       "Bash(npx tsc:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

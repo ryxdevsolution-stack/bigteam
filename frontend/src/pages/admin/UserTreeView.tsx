@@ -5,8 +5,6 @@ import {
   Award,
   CheckCircle,
   XCircle,
-  Crown,
-  Shield,
   DollarSign,
   RefreshCw,
   Mail,
@@ -43,7 +41,7 @@ const UserTreeView: React.FC = () => {
   const [chainUsers, setChainUsers] = useState<ChainUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
-  const [commissionAmount, setCommissionAmount] = useState<number>(0);
+  const [_commissionAmount, _setCommissionAmount] = useState<number>(0);
 
   useEffect(() => {
     if (!hasFetched) {
@@ -61,7 +59,7 @@ const UserTreeView: React.FC = () => {
         const settings = data.settings;
         // Calculate commission amount: activation_amount * commission_rate
         const commission = parseFloat(settings.activation_amount) * parseFloat(settings.commission_rate);
-        setCommissionAmount(commission);
+        _setCommissionAmount(commission);
       }
     } catch (error) {
       console.error('Failed to fetch MLM settings:', error);
@@ -95,7 +93,7 @@ const UserTreeView: React.FC = () => {
     }
   };
 
-  const ChainNode = ({ user, index, showConnectionLine, allUsers, commissionAmount }: { user: ChainUser; index: number; showConnectionLine: boolean; allUsers: ChainUser[]; commissionAmount: number }) => {
+  const ChainNode = ({ user, index, showConnectionLine, allUsers }: { user: ChainUser; index: number; showConnectionLine: boolean; allUsers: ChainUser[] }) => {
     const commissionLimit = 2; // From MLM settings
     const isInactive = user.commission_received_count >= commissionLimit;
 
@@ -399,7 +397,6 @@ const UserTreeView: React.FC = () => {
                 index={index}
                 showConnectionLine={index > 0}
                 allUsers={chainUsers}
-                commissionAmount={commissionAmount}
               />
             ))}
           </div>

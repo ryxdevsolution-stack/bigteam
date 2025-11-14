@@ -14,10 +14,8 @@ import {
   Eye,
   ChevronDown,
   RefreshCw,
-  X,
   User as UserIcon,
   Activity,
-  Clock,
   CheckCircle,
   XCircle,
   UserPlus,
@@ -37,15 +35,15 @@ interface CustomerData {
   username?: string
   email: string
   role: 'admin' | 'customer'
-  is_active: boolean
-  created_at: string
+  is_active?: boolean
+  created_at?: string
   updated_at?: string
   sponsored_by?: string
-  is_mlm_active: boolean
-  total_earnings: number
+  is_mlm_active?: boolean
+  total_earnings?: number
   referral_code?: string
   activation_date?: string
-  amount: number
+  amount?: number
 }
 
 interface CustomerStats {
@@ -118,6 +116,7 @@ const CustomerOverview: React.FC = () => {
     const inactiveCustomers = totalCustomers - activeCustomers
     const totalEarnings = customerData.reduce((sum, c) => sum + (c.total_earnings || 0), 0)
     const newThisMonth = customerData.filter(c => {
+      if (!c.created_at) return false
       const createdDate = new Date(c.created_at)
       return createdDate >= firstDayOfMonth
     }).length

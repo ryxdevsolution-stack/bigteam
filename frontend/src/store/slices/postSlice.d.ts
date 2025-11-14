@@ -1,5 +1,5 @@
 import { Post } from '../../types/post';
-interface PostState {
+export interface PostState {
     posts: Post[];
     selectedPost: Post | null;
     loading: boolean;

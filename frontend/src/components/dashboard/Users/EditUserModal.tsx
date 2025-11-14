@@ -23,8 +23,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   user,
   isOpen,
   onClose,
-  onSave,
-  loading = false
+  onSave
 }) => {
   const [formData, setFormData] = useState({
     full_name: user.full_name,

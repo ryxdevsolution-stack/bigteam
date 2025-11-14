@@ -14,4 +14,7 @@ export interface User {
   referral_code?: string
   activation_date?: string
   amount?: number
+  available_balance?: number
+  pending_balance?: number
+  commission_received_count?: number
 }

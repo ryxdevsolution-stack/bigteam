@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { userService } from '../../services/userService'
+import { userService, CreateUserPayload } from '../../services/userService'
 import { User } from '../../types/user'
 
-interface UserState {
+export interface UserState {
   users: User[]
   selectedUser: User | null
   loading: boolean
@@ -23,7 +23,7 @@ export const fetchUsers = createAsyncThunk('users/fetchAll', async () => {
 
 export const createUser = createAsyncThunk(
   'users/create',
-  async (userData: Partial<User>) => {
+  async (userData: CreateUserPayload) => {
     const response = await userService.createUser(userData)
     return response.data
   }

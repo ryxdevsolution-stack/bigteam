@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Image as ImageIcon, X, Heart, Share2, Eye, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { Post } from '../../../types/post';
 
 const PhotoTab: React.FC = () => {
   const navigate = useNavigate();

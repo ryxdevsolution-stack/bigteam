@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Shield,
   TrendingUp,
-  Users,
   Network,
   Coins,
   CheckCircle,

@@ -62,13 +62,13 @@ const VideoTab: React.FC = () => {
     });
   }, [isMuted]);
 
-  const handleVideoClick = (index: number) => {
-    setSelectedVideoIndex(index);
+  const handleVideoClick = (_index: number) => {
+    setSelectedVideoIndex(_index);
     setViewMode('feed');
 
     // Scroll to the selected video after a short delay to ensure DOM is ready
     setTimeout(() => {
-      const videoElement = document.getElementById(`video-${videos[index].id}`);
+      const videoElement = document.getElementById(`video-${videos[_index].id}`);
       if (videoElement) {
         videoElement.scrollIntoView({ behavior: 'auto', block: 'start' });
       }
@@ -118,7 +118,7 @@ const VideoTab: React.FC = () => {
           className="reels-container fixed inset-0 bg-black z-[100] lg:hidden overflow-y-scroll snap-y snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {videos.map((video, index) => (
+          {videos.map((video, __index) => (
             <div
               key={video.id}
               id={`video-${video.id}`}
@@ -229,13 +229,13 @@ const VideoTab: React.FC = () => {
         </motion.div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {videos.map((video, index) => (
+          {videos.map((video, videoIndex) => (
             <motion.div
               key={video.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => handleVideoClick(index)}
+              transition={{ delay: videoIndex * 0.05 }}
+              onClick={() => handleVideoClick(videoIndex)}
               className="relative aspect-[9/16] rounded-lg sm:rounded-xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-2xl transition-shadow"
             >
               <img

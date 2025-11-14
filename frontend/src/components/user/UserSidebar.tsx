@@ -26,8 +26,8 @@ interface MenuItem {
 }
 
 const UserSidebar: React.FC = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed] = useState(false);
+  const [_isMobileOpen, _setIsMobileOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
