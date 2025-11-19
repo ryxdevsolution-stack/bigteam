@@ -8,7 +8,7 @@ import ssl
 import certifi
 import base64
 
-from ..utils.db import get_db_connection, return_db_connection, supabase  # Your existing db.py
+from utils.db import get_db_connection, return_db_connection, supabase  # Your existing db.py
 
 post_bp = Blueprint("posts", __name__)
 

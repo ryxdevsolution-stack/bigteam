@@ -7,7 +7,7 @@ import string
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
-from ..utils.db import get_db_connection, return_db_connection
+from utils.db import get_db_connection, return_db_connection
 
 
 class MLMService:

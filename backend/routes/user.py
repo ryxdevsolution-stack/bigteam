@@ -2,7 +2,7 @@
 User Routes - User-facing endpoints for profile, dashboard, and referrals
 """
 from flask import Blueprint, request, jsonify
-from ..services.mlm_service import MLMService
+from services.mlm_service import MLMService
 
 user_bp = Blueprint('user', __name__, url_prefix='/api/user')
 

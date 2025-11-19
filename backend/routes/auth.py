@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
-from ..models.user_model import create_user, get_user_by_email, get_all_users, update_user, delete_user, get_user_by_id
-from ..services.mlm_service import MLMService
+from models.user_model import create_user, get_user_by_email, get_all_users, update_user, delete_user, get_user_by_id
+from services.mlm_service import MLMService
 from decimal import Decimal
 
 auth_bp = Blueprint('auth', __name__)
