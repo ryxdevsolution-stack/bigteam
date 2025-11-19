@@ -5,7 +5,7 @@ Creates and extends tables for MLM referral system
 import os
 import sys
 from dotenv import load_dotenv
-from utils.db import get_db_connection, return_db_connection
+from .utils.db import get_db_connection, return_db_connection
 
 # Set UTF-8 encoding for Windows
 if sys.platform == 'win32':

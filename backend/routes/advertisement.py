@@ -5,7 +5,7 @@ from uuid import uuid4
 import os
 from datetime import datetime
 
-from utils.db import get_db_connection, return_db_connection, supabase
+from ..utils.db import get_db_connection, return_db_connection, supabase
 
 ad_bp = Blueprint("advertisements", __name__)
 

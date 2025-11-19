@@ -1,11 +1,11 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from routes.auth import auth_bp
-from routes.post import post_bp
-from routes.advertisement import ad_bp
-from routes.feed import feed_bp
-from routes.user import user_bp
-from routes.mlm import mlm_bp
+from .routes.auth import auth_bp
+from .routes.post import post_bp
+from .routes.advertisement import ad_bp
+from .routes.feed import feed_bp
+from .routes.user import user_bp
+from .routes.mlm import mlm_bp
 import os
 from dotenv import load_dotenv
 

@@ -3,7 +3,7 @@ MLM Routes - MLM-specific endpoints for purchases, activation, tree visualizatio
 """
 from flask import Blueprint, request, jsonify
 from decimal import Decimal
-from services.mlm_service import MLMService
+from ..services.mlm_service import MLMService
 
 mlm_bp = Blueprint('mlm', __name__, url_prefix='/api/mlm')
 
