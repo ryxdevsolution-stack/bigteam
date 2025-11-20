@@ -8,8 +8,6 @@ import {
   Bell,
   LogOut,
   TrendingUp,
-  Menu,
-  X,
   Sun,
   Moon,
   User,
@@ -30,7 +28,7 @@ interface MenuItem {
 
 const Sidebar: React.FC = () => {
   const [isCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  // Mobile menu removed - using bottom navigation instead
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -241,42 +239,17 @@ const Sidebar: React.FC = () => {
   );
 
   return (
-    <>
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-50 p-1.5 sm:p-2 rounded-lg bg-white dark:bg-dark-900 border border-light-300 dark:border-dark-800 shadow-lg"
-      >
-        {isMobileOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
-      </button>
-
-      <motion.div
-        initial={false}
-        animate={{ width: isCollapsed ? 'auto' : 'auto' }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`
-          hidden lg:flex flex-col h-full bg-white/95 dark:bg-dark-900/80 backdrop-blur-2xl border-r border-light-200 dark:border-dark-700 shadow-xl
-          ${isCollapsed ? 'w-16 xl:w-20' : 'w-56 xl:w-64 2xl:w-72'}
-        `}
-      >
-        {sidebarContent}
-      </motion.div>
-
-      <motion.div
-        initial={{ x: '-100%' }}
-        animate={{ x: isMobileOpen ? 0 : '-100%' }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-        className="lg:hidden fixed inset-y-0 left-0 z-40 w-[70vw] sm:w-64 md:w-72 max-w-[20rem] flex flex-col bg-white dark:bg-dark-900/95 backdrop-blur-2xl border-r border-light-200 dark:border-dark-700 shadow-2xl"
-      >
-        {sidebarContent}
-      </motion.div>
-
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
-    </>
+    <motion.div
+      initial={false}
+      animate={{ width: isCollapsed ? 'auto' : 'auto' }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      className={`
+        hidden lg:flex flex-col h-full bg-white/95 dark:bg-dark-900/80 backdrop-blur-2xl border-r border-light-200 dark:border-dark-700 shadow-xl
+        ${isCollapsed ? 'w-16 xl:w-20' : 'w-56 xl:w-64 2xl:w-72'}
+      `}
+    >
+      {sidebarContent}
+    </motion.div>
   );
 };
 

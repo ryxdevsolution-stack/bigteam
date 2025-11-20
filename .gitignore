@@ -10,10 +10,15 @@ backend/*.pyd
 
 # Virtual Environment
 backend/venv/
+backend/venv_new/
 backend/env/
 backend/ENV/
 backend/.venv/
 backend/.ENV/
+venv/
+venv_new/
+env/
+.venv/
 
 # Flask
 backend/instance/

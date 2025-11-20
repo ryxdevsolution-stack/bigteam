@@ -109,11 +109,11 @@ const UserTreeView: React.FC = () => {
         )}
 
         {/* Main chain node container - Centered */}
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
           {/* User Card Container */}
-          <div className="flex items-center gap-4 w-full">
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 w-full">
             {/* Position number badge */}
-            <div className="flex-shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center font-bold text-white shadow-lg text-lg">
+            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center font-bold text-white shadow-lg text-sm sm:text-base md:text-lg">
               {user.position}
             </div>
 
@@ -122,7 +122,7 @@ const UserTreeView: React.FC = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
-              className={`flex-1 flex flex-col gap-3 p-5 rounded-xl shadow-lg border-2 ${
+              className={`flex-1 flex flex-col gap-2 sm:gap-3 p-3 sm:p-4 md:p-5 rounded-lg sm:rounded-xl shadow-lg border sm:border-2 ${
                 isInactive
                   ? 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 border-gray-400/50 dark:border-gray-600/50'
                   : user.is_active
@@ -131,19 +131,19 @@ const UserTreeView: React.FC = () => {
               }`}
             >
               {/* Top Row - Avatar and Main Info */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
                 {/* User Avatar */}
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 shadow-md relative ${
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center flex-shrink-0 shadow-md relative ${
                   isInactive
                     ? 'bg-gradient-to-br from-gray-400 to-gray-500'
                     : user.is_active
                     ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                     : 'bg-gradient-to-br from-blue-400 to-blue-500'
                 }`}>
-                  <Users className="w-8 h-8 text-white" />
+                  <Users className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" />
                   {/* Commission count badge */}
                   {user.commission_received_count > 0 && (
-                    <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-accent-bitcoin flex items-center justify-center text-xs font-bold text-white shadow-md">
+                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-accent-bitcoin flex items-center justify-center text-[0.625rem] sm:text-xs font-bold text-white shadow-md">
                       {user.commission_received_count}
                     </div>
                   )}
@@ -151,49 +151,49 @@ const UserTreeView: React.FC = () => {
 
                 {/* User Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-lg font-bold text-dark-900 dark:text-white truncate">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-dark-900 dark:text-white truncate">
                       {user.username}
                     </h3>
                     {user.is_active ? (
-                      <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-green-500 flex-shrink-0" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                      <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-500 flex-shrink-0" />
                     )}
                     {isInactive && (
-                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 flex-shrink-0">
+                      <span className="hidden sm:inline px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[0.625rem] sm:text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 flex-shrink-0">
                         Cycle Complete
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-dark-600 dark:text-dark-300">
-                    <Mail className="w-4 h-4 flex-shrink-0" />
+                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-dark-600 dark:text-dark-300">
+                    <Mail className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 flex-shrink-0" />
                     <span className="truncate">{user.email}</span>
                   </div>
                 </div>
 
                 {/* Status indicator */}
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 hidden sm:block">
                   {isInactive ? (
-                    <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-red-500 flex items-center justify-center text-white font-bold text-sm sm:text-lg md:text-xl shadow-md">
                       ✓
                     </div>
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center shadow-md">
-                      <LinkIcon className="w-6 h-6 text-white" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-green-500 flex items-center justify-center shadow-md">
+                      <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Bottom Row - Status Tags */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-dark-500 dark:text-dark-400 text-sm flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-dark-500 dark:text-dark-400 text-[0.625rem] sm:text-xs md:text-sm flex-shrink-0">
                   Joined: {new Date(user.created_at).toLocaleDateString()}
                 </span>
 
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold flex-shrink-0 ${
+                <span className={`px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-full text-[0.625rem] sm:text-xs md:text-sm font-semibold flex-shrink-0 ${
                   user.is_active
                     ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                     : 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300'
@@ -201,8 +201,8 @@ const UserTreeView: React.FC = () => {
                   {user.is_active ? 'Active in Chain' : 'Inactive'}
                 </span>
 
-                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-accent-bitcoin/20 text-accent-bitcoin dark:text-accent-gold flex-shrink-0">
-                  <DollarSign className="w-4 h-4" />
+                <span className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-full text-[0.625rem] sm:text-xs md:text-sm font-semibold bg-accent-bitcoin/20 text-accent-bitcoin dark:text-accent-gold flex-shrink-0">
+                  <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
                   {user.commission_received_count}/{commissionLimit} Commissions
                 </span>
               </div>

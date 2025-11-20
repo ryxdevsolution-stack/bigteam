@@ -22,7 +22,11 @@
       "Bash(find:*)",
       "Bash(npx tsc:*)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(./venv/bin/python:*)",
+      "Bash(pip3 install:*)",
+      "Bash(./venv_new/bin/python:*)",
+      "Bash(npm i:*)"
     ],
     "deny": [],
     "ask": []

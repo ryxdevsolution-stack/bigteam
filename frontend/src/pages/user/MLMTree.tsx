@@ -25,51 +25,51 @@ const MLMTree: React.FC = () => {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`relative p-6 rounded-2xl shadow-xl ${
+      className={`relative p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-xl ${
         isYou
           ? 'bg-gradient-to-br from-accent-bitcoin to-accent-orange text-white'
           : isActive
           ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
           : 'bg-gradient-to-br from-gray-400 to-gray-500 text-white'
-      } min-w-[16rem] max-w-[20rem]`}
+      } w-full sm:min-w-[14rem] sm:max-w-[18rem] md:min-w-[16rem] md:max-w-[20rem]`}
     >
       {isYou && (
-        <div className="absolute -top-3 -right-3 bg-yellow-400 text-yellow-900 rounded-full p-2 shadow-lg">
-          <Crown className="w-5 h-5" />
+        <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 bg-yellow-400 text-yellow-900 rounded-full p-1.5 sm:p-2 shadow-lg">
+          <Crown className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       )}
 
-      <div className="flex items-center gap-4 mb-3">
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+      <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-3">
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg ${
           isYou ? 'bg-white/20' : 'bg-white/30'
         }`}>
-          <Users className="w-7 h-7" />
+          <Users className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-lg truncate">{userData?.full_name || userData?.username || 'User'}</p>
-          <p className="text-xs opacity-90 truncate">{userData?.email}</p>
+          <p className="font-bold text-sm sm:text-base md:text-lg truncate">{userData?.full_name || userData?.username || 'User'}</p>
+          <p className="text-[0.625rem] sm:text-xs opacity-90 truncate">{userData?.email}</p>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="opacity-90">{label}</span>
+      <div className="space-y-1.5 sm:space-y-2">
+        <div className="flex items-center justify-between text-xs sm:text-sm">
+          <span className="opacity-90 text-[0.625rem] sm:text-xs">{label}</span>
           {isActive ? (
-            <span className="flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs font-semibold">
-              <CheckCircle className="w-3 h-3" />
+            <span className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white/20 rounded-full text-[0.625rem] sm:text-xs font-semibold">
+              <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               Active
             </span>
           ) : (
-            <span className="flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs font-semibold">
-              <XCircle className="w-3 h-3" />
+            <span className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white/20 rounded-full text-[0.625rem] sm:text-xs font-semibold">
+              <XCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               Inactive
             </span>
           )}
         </div>
         {userData?.total_earnings !== undefined && (
-          <div className="flex items-center justify-between text-sm pt-2 border-t border-white/20">
-            <span className="opacity-90">Earnings</span>
-            <span className="font-bold">₹{userData.total_earnings?.toFixed(2) || '0.00'}</span>
+          <div className="flex items-center justify-between text-xs sm:text-sm pt-1.5 sm:pt-2 border-t border-white/20">
+            <span className="opacity-90 text-[0.625rem] sm:text-xs">Earnings</span>
+            <span className="font-bold text-xs sm:text-sm">₹{userData.total_earnings?.toFixed(2) || '0.00'}</span>
           </div>
         )}
       </div>
@@ -169,78 +169,81 @@ const MLMTree: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white dark:bg-dark-800 rounded-2xl p-8 shadow-lg overflow-x-auto"
+        className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg"
       >
-        <div className="flex items-center gap-3 mb-8">
-          <Zap className="w-6 h-6 text-accent-bitcoin" />
-          <h2 className="text-2xl font-bold text-dark-900 dark:text-white">Linear Chain Flow</h2>
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 md:mb-8">
+          <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-accent-bitcoin" />
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-dark-900 dark:text-white">Linear Chain Flow</h2>
         </div>
 
-        <div className="flex flex-col items-center space-y-0 min-w-max">
-          {/* Upline (Sponsor) */}
-          {treeData?.upline && (
-            <>
-              <UserNode
-                userData={treeData.upline}
-                label="Your Sponsor (Upline)"
-                isActive={treeData.upline.is_mlm_active}
-              />
-              <ConnectionLine direction="down" animated />
-            </>
-          )}
+        <div className="flex flex-col items-center space-y-0 overflow-x-auto max-w-full px-2 sm:px-0">
+          <div className="flex flex-col items-center space-y-0 mx-auto">
+            {/* Upline (Sponsor) */}
+            {treeData?.upline && (
+              <>
+                <UserNode
+                  userData={treeData.upline}
+                  label="Your Sponsor (Upline)"
+                  isActive={treeData.upline.is_mlm_active}
+                />
+                <ConnectionLine direction="down" animated />
+              </>
+            )}
 
-          {/* You (Current User) */}
-          <UserNode
-            userData={treeData?.user}
-            label="You"
-            isActive={treeData?.user.is_mlm_active}
-            isYou={true}
-          />
+            {/* You (Current User) */}
+            <UserNode
+              userData={treeData?.user}
+              label="You"
+              isActive={treeData?.user.is_mlm_active}
+              isYou={true}
+            />
 
-          {/* Downline (Your Referrals) */}
-          {treeData?.downline && treeData.downline.length > 0 && (
-            <>
-              <ConnectionLine direction="down" animated />
+            {/* Downline (Your Referrals) */}
+            {treeData?.downline && treeData.downline.length > 0 && (
+              <>
+                <ConnectionLine direction="down" animated />
 
-              <div className="flex flex-wrap gap-6 justify-center items-start max-w-6xl">
-                {treeData.downline.map((referral, index) => (
-                  <motion.div
-                    key={referral.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                  >
-                    <UserNode
-                      userData={referral}
-                      label={`Referral ${index + 1}`}
-                      isActive={referral.is_mlm_active}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            </>
-          )}
+                <div className="flex flex-wrap gap-3 sm:gap-4 md:gap-6 justify-center items-start max-w-full sm:max-w-2xl md:max-w-6xl">
+                  {treeData.downline.map((referral, index) => (
+                    <motion.div
+                      key={referral.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1 }}
+                      className="w-full sm:w-auto"
+                    >
+                      <UserNode
+                        userData={referral}
+                        label={`Referral ${index + 1}`}
+                        isActive={referral.is_mlm_active}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
 
-          {/* No Downline Message */}
-          {(!treeData?.downline || treeData.downline.length === 0) && (
-            <>
-              <ConnectionLine direction="down" />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 }}
-                className="bg-light-100 dark:bg-dark-700 rounded-2xl p-8 text-center max-w-md"
-              >
-                <Users className="w-16 h-16 text-dark-300 dark:text-dark-600 mx-auto mb-4" />
-                <p className="text-dark-600 dark:text-dark-300 text-lg font-semibold mb-2">
-                  No Team Members Yet
-                </p>
-                <p className="text-dark-500 dark:text-dark-400 text-sm">
-                  Share your referral code to build your team and start earning commissions
-                </p>
-              </motion.div>
-            </>
-          )}
+            {/* No Downline Message */}
+            {(!treeData?.downline || treeData.downline.length === 0) && (
+              <>
+                <ConnectionLine direction="down" />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="bg-light-100 dark:bg-dark-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 text-center w-full max-w-xs sm:max-w-md"
+                >
+                  <Users className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-dark-300 dark:text-dark-600 mx-auto mb-3 sm:mb-4" />
+                  <p className="text-dark-600 dark:text-dark-300 text-base sm:text-lg font-semibold mb-1.5 sm:mb-2">
+                    No Team Members Yet
+                  </p>
+                  <p className="text-dark-500 dark:text-dark-400 text-xs sm:text-sm">
+                    Share your referral code to build your team and start earning commissions
+                  </p>
+                </motion.div>
+              </>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -250,32 +253,32 @@ const MLMTree: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 shadow-lg text-white"
+          className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg text-white"
         >
-          <h2 className="text-xl font-bold mb-4">Your Position in Global Chain</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-              <p className="text-sm opacity-90 mb-1">Position Number</p>
-              <p className="text-3xl font-bold">#{treeData.chain_info.position}</p>
+          <h2 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4">Your Position in Global Chain</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm opacity-90 mb-0.5 sm:mb-1">Position Number</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold">#{treeData.chain_info.position}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-              <p className="text-sm opacity-90 mb-1">Status</p>
-              <p className={`text-2xl font-bold ${
+            <div className="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm opacity-90 mb-0.5 sm:mb-1">Status</p>
+              <p className={`text-lg sm:text-xl md:text-2xl font-bold ${
                 treeData.chain_info.is_active ? 'text-green-300' : 'text-gray-300'
               }`}>
                 {treeData.chain_info.is_active ? 'Active' : 'Inactive'}
               </p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
-              <p className="text-sm opacity-90 mb-1">Joined Chain</p>
-              <p className="text-lg font-bold">
+            <div className="bg-white/10 backdrop-blur rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm opacity-90 mb-0.5 sm:mb-1">Joined Chain</p>
+              <p className="text-sm sm:text-base md:text-lg font-bold">
                 {new Date(treeData.chain_info.joined_at).toLocaleDateString()}
               </p>
             </div>
           </div>
-          <div className="mt-4 p-4 bg-white/10 backdrop-blur rounded-xl">
-            <p className="text-sm opacity-90 mb-2">How It Works:</p>
-            <ul className="text-sm space-y-1 opacity-90">
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-white/10 backdrop-blur rounded-lg sm:rounded-xl">
+            <p className="text-xs sm:text-sm opacity-90 mb-1.5 sm:mb-2 font-semibold">How It Works:</p>
+            <ul className="text-[0.625rem] sm:text-xs md:text-sm space-y-0.5 sm:space-y-1 opacity-90">
               <li>• When you're <strong>active</strong>, you receive commissions from new users joining after you</li>
               <li>• After receiving <strong>2 commissions</strong>, you become inactive</li>
               <li>• You can <strong>reactivate</strong> anytime by making another purchase</li>
@@ -290,10 +293,10 @@ const MLMTree: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
-        className="bg-white dark:bg-dark-800 rounded-2xl p-6 shadow-lg"
+        className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg"
       >
-        <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Legend</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <h3 className="text-base sm:text-lg font-bold text-dark-900 dark:text-white mb-3 sm:mb-4">Legend</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center">
               <Crown className="w-6 h-6 text-white" />

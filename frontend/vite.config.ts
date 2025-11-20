@@ -34,11 +34,22 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            redux: ['@reduxjs/toolkit', 'react-redux'],
+            // React core
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            // State management
+            'redux': ['@reduxjs/toolkit', 'react-redux'],
+            // UI libraries
+            'ui-vendor': ['framer-motion', 'lucide-react'],
+            // Utilities
+            'utils': ['axios', 'date-fns'],
+          },
+          chunkFileNames: (chunkInfo) => {
+            const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
+            return `assets/js/${facadeModuleId}-[hash].js`;
           },
         },
       },
+      chunkSizeWarningLimit: 600,
     },
     define: {
       'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
