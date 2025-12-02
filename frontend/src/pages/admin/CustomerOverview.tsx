@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
@@ -23,6 +23,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { userService, CreateUserPayload } from '../../services/userService'
+import { useData } from '../../contexts/DataContext'
 import MetricCard from '../../components/dashboard/Cards/MetricCard'
 import CustomerDetailModal from '../../components/admin/CustomerDetailModal'
 import CreateUserForm from '../../components/dashboard/Users/CreateUserForm'
@@ -38,10 +39,9 @@ interface CustomerData {
   is_active?: boolean
   created_at?: string
   updated_at?: string
-  sponsored_by?: string
-  is_mlm_active?: boolean
+  invited_by?: string
+  is_active_member?: boolean
   total_earnings?: number
-  referral_code?: string
   activation_date?: string
   amount?: number
 }
@@ -52,27 +52,19 @@ interface CustomerStats {
   inactiveCustomers: number
   totalEarnings: number
   newThisMonth: number
-  mlmActiveCount: number
+  teamActiveCount: number
 }
 
 type TabType = 'view' | 'create'
 
 const CustomerOverview: React.FC = () => {
+  // Use centralized data context for users - prevents duplicate API calls
+  const { users, usersLoading, fetchUsers, refreshUsers } = useData()
+
   const [activeTab, setActiveTab] = useState<TabType>('view')
-  const [customers, setCustomers] = useState<CustomerData[]>([])
-  const [filteredCustomers, setFilteredCustomers] = useState<CustomerData[]>([])
-  const [loading, setLoading] = useState(false)
-  const [stats, setStats] = useState<CustomerStats>({
-    totalCustomers: 0,
-    activeCustomers: 0,
-    inactiveCustomers: 0,
-    totalEarnings: 0,
-    newThisMonth: 0,
-    mlmActiveCount: 0
-  })
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
-  const [filterMLM, setFilterMLM] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterTeam, setFilterTeam] = useState<'all' | 'active' | 'inactive'>('all')
   const [filterRole, setFilterRole] = useState<'all' | 'customer' | 'admin'>('all')
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -83,31 +75,20 @@ const CustomerOverview: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [mutationLoading, setMutationLoading] = useState(false)
 
+  // Fetch users on mount - DataContext handles caching and deduplication
   useEffect(() => {
-    fetchCustomers()
-  }, [])
+    fetchUsers()
+  }, [fetchUsers])
 
-  useEffect(() => {
-    applyFilters()
-  }, [customers, searchTerm, filterStatus, filterMLM, filterRole])
+  // Cast users to CustomerData type
+  const customers = users as unknown as CustomerData[]
+  const loading = usersLoading || mutationLoading
 
-  const fetchCustomers = async () => {
-    setLoading(true)
-    try {
-      const response = await userService.getAllUsers()
-      const allUsers = response.data || []
-
-      setCustomers(allUsers)
-      calculateStats(allUsers.filter((user: CustomerData) => user.role === 'customer'))
-    } catch (error) {
-      console.error('Error fetching customers:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const calculateStats = (customerData: CustomerData[]) => {
+  // Memoized stats calculation - only recalculates when customers change
+  const stats = useMemo<CustomerStats>(() => {
+    const customerData = customers.filter(c => c.role === 'customer')
     const now = new Date()
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
@@ -120,19 +101,20 @@ const CustomerOverview: React.FC = () => {
       const createdDate = new Date(c.created_at)
       return createdDate >= firstDayOfMonth
     }).length
-    const mlmActiveCount = customerData.filter(c => c.is_mlm_active).length
+    const teamActiveCount = customerData.filter(c => c.is_active_member).length
 
-    setStats({
+    return {
       totalCustomers,
       activeCustomers,
       inactiveCustomers,
       totalEarnings,
       newThisMonth,
-      mlmActiveCount
-    })
-  }
+      teamActiveCount
+    }
+  }, [customers])
 
-  const applyFilters = () => {
+  // Memoized filtered customers - only recalculates when filters or customers change
+  const filteredCustomers = useMemo(() => {
     let filtered = [...customers]
 
     // Apply role filter
@@ -142,11 +124,11 @@ const CustomerOverview: React.FC = () => {
 
     // Apply search filter
     if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(customer =>
-        customer.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.referral_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.full_name.toLowerCase().includes(searchLower) ||
+        customer.email.toLowerCase().includes(searchLower) ||
+        customer.username?.toLowerCase().includes(searchLower)
       )
     }
 
@@ -157,15 +139,27 @@ const CustomerOverview: React.FC = () => {
       )
     }
 
-    // Apply MLM filter
-    if (filterMLM !== 'all') {
+    // Apply Team filter
+    if (filterTeam !== 'all') {
       filtered = filtered.filter(customer =>
-        filterMLM === 'active' ? customer.is_mlm_active : !customer.is_mlm_active
+        filterTeam === 'active' ? customer.is_active_member : !customer.is_active_member
       )
     }
 
-    setFilteredCustomers(filtered)
-  }
+    // Sort by created_at timestamp (oldest first - who joined first appears first)
+    filtered.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+      return dateA - dateB
+    })
+
+    return filtered
+  }, [customers, searchTerm, filterStatus, filterTeam, filterRole])
+
+  // Force refresh handler
+  const handleRefresh = useCallback(async () => {
+    await refreshUsers()
+  }, [refreshUsers])
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A'
@@ -177,10 +171,7 @@ const CustomerOverview: React.FC = () => {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
+    return `🪙${amount.toFixed(2)}`
   }
 
   const handleViewCustomer = (customer: CustomerData) => {
@@ -189,7 +180,7 @@ const CustomerOverview: React.FC = () => {
   }
 
   const handleCreateUser = async (userData: CreateUserPayload) => {
-    setLoading(true)
+    setMutationLoading(true)
     setError(null)
     setSuccess(null)
 
@@ -199,7 +190,7 @@ const CustomerOverview: React.FC = () => {
 
       // Switch to view tab and refresh users list
       setActiveTab('view')
-      await fetchCustomers()
+      await refreshUsers()
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
@@ -210,7 +201,7 @@ const CustomerOverview: React.FC = () => {
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
-      setLoading(false)
+      setMutationLoading(false)
     }
   }
 
@@ -220,10 +211,15 @@ const CustomerOverview: React.FC = () => {
   }
 
   const handleSaveEdit = async (userId: string, data: Partial<CustomerData>) => {
-    await userService.updateUser(userId, data)
-    await fetchCustomers()
-    setIsEditModalOpen(false)
-    setEditUser(null)
+    setMutationLoading(true)
+    try {
+      await userService.updateUser(userId, data)
+      await refreshUsers()
+      setIsEditModalOpen(false)
+      setEditUser(null)
+    } finally {
+      setMutationLoading(false)
+    }
   }
 
   const handleDelete = (user: CustomerData) => {
@@ -239,7 +235,7 @@ const CustomerOverview: React.FC = () => {
       await userService.deleteUser(userToDelete.id)
       setIsDeleteModalOpen(false)
       setUserToDelete(null)
-      await fetchCustomers()
+      await refreshUsers()
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to delete user')
     } finally {
@@ -256,7 +252,7 @@ const CustomerOverview: React.FC = () => {
 
   const handleExportData = () => {
     // Convert customers to CSV
-    const headers = ['ID', 'Name', 'Email', 'Username', 'Role', 'Status', 'MLM Active', 'Total Earnings', 'Referral Code', 'Created Date']
+    const headers = ['ID', 'Name', 'Email', 'Username', 'Role', 'Status', 'Team Active', 'Total Earnings', 'Created Date']
     const csvContent = [
       headers.join(','),
       ...filteredCustomers.map(c => [
@@ -266,9 +262,8 @@ const CustomerOverview: React.FC = () => {
         c.username,
         c.role,
         c.is_active ? 'Active' : 'Inactive',
-        c.is_mlm_active ? 'Yes' : 'No',
+        c.is_active_member ? 'Yes' : 'No',
         c.total_earnings || 0,
-        c.referral_code || '',
         formatDate(c.created_at)
       ].join(','))
     ].join('\n')
@@ -386,7 +381,7 @@ const CustomerOverview: React.FC = () => {
         <MetricCard
           title="Total Earnings"
           value={stats.totalEarnings}
-          prefix="$"
+          prefix="🪙"
           icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-accent-bitcoin" />}
           trend="up"
           delay={0.3}
@@ -399,8 +394,8 @@ const CustomerOverview: React.FC = () => {
           delay={0.4}
         />
         <MetricCard
-          title="MLM Active"
-          value={stats.mlmActiveCount}
+          title="Team Active"
+          value={stats.teamActiveCount}
           icon={<CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />}
           trend="neutral"
           delay={0.5}
@@ -418,7 +413,7 @@ const CustomerOverview: React.FC = () => {
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 justify-end">
             <button
-              onClick={fetchCustomers}
+              onClick={handleRefresh}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-100 dark:bg-dark-800 hover:bg-light-200 dark:hover:bg-dark-700 transition-all disabled:opacity-50"
             >
@@ -441,7 +436,7 @@ const CustomerOverview: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
               <input
                 type="text"
-                placeholder="Search by name, email, username, or referral code..."
+                placeholder="Search by name, email, or username..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
@@ -478,17 +473,17 @@ const CustomerOverview: React.FC = () => {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
             </div>
 
-            {/* MLM Filter */}
+            {/* Team Filter */}
             <div className="relative min-w-[160px]">
               <Activity className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
               <select
-                value={filterMLM}
-                onChange={(e) => setFilterMLM(e.target.value as 'all' | 'active' | 'inactive')}
+                value={filterTeam}
+                onChange={(e) => setFilterTeam(e.target.value as 'all' | 'active' | 'inactive')}
                 className="w-full pl-10 pr-8 py-2 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-pointer"
               >
-                <option value="all">MLM Status</option>
-                <option value="active">MLM Active</option>
-                <option value="inactive">MLM Inactive</option>
+                <option value="all">Team Status</option>
+                <option value="active">Team Active</option>
+                <option value="inactive">Team Inactive</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 pointer-events-none" />
             </div>
@@ -525,7 +520,7 @@ const CustomerOverview: React.FC = () => {
               No customers found
             </h3>
             <p className="text-sm text-dark-600 dark:text-dark-400">
-              {searchTerm || filterStatus !== 'all' || filterMLM !== 'all'
+              {searchTerm || filterStatus !== 'all' || filterTeam !== 'all'
                 ? 'Try adjusting your filters'
                 : 'No customers have been registered yet'}
             </p>
@@ -534,28 +529,28 @@ const CustomerOverview: React.FC = () => {
           <>
             {/* Desktop Table View */}
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead className="bg-light-50 dark:bg-dark-800/50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[18%] px-4 py-3 text-left text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Customer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[20%] px-4 py-3 text-left text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Contact
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
-                      MLM
+                    <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                      Team
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[14%] px-4 py-3 text-left text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Earnings
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[12%] px-4 py-3 text-left text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Joined
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-dark-700 dark:text-dark-300 uppercase tracking-wider">
+                    <th className="w-[16%] px-4 py-3 text-center text-xs font-semibold text-dark-700 dark:text-dark-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -569,39 +564,34 @@ const CustomerOverview: React.FC = () => {
                       transition={{ delay: index * 0.03 }}
                       className="hover:bg-light-50 dark:hover:bg-dark-800/30 transition-colors"
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center flex-shrink-0">
                             <UserIcon className="w-5 h-5 text-white" />
                           </div>
-                          <div>
-                            <p className="font-medium text-dark-900 dark:text-white">
+                          <div className="min-w-0">
+                            <p className="font-medium text-dark-900 dark:text-white truncate">
                               {customer.full_name}
                             </p>
-                            <p className="text-sm text-dark-600 dark:text-dark-400">
+                            <p className="text-sm text-dark-600 dark:text-dark-400 truncate">
                               @{customer.username || 'N/A'}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col space-y-1">
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col space-y-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <Mail className="w-4 h-4 text-dark-500" />
-                            <span className="text-sm text-dark-700 dark:text-dark-300">
+                            <Mail className="w-4 h-4 text-dark-500 flex-shrink-0" />
+                            <span className="text-sm text-dark-700 dark:text-dark-300 truncate">
                               {customer.email}
                             </span>
                           </div>
-                          {customer.referral_code && (
-                            <span className="text-xs text-dark-500 dark:text-dark-500">
-                              Code: {customer.referral_code}
-                            </span>
-                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3 text-center">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                             customer.is_active
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
@@ -615,20 +605,20 @@ const CustomerOverview: React.FC = () => {
                           {customer.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3 text-center">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            customer.is_mlm_active
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                            customer.is_active_member
                               ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                               : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
                           }`}
                         >
-                          {customer.is_mlm_active ? 'Active' : 'Inactive'}
+                          {customer.is_active_member ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-dark-900 dark:text-white">
+                          <span className="text-sm font-semibold text-dark-900 dark:text-white">
                             {formatCurrency(customer.total_earnings || 0)}
                           </span>
                           <span className="text-xs text-dark-500 dark:text-dark-500">
@@ -636,14 +626,14 @@ const CustomerOverview: React.FC = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center space-x-2 text-sm text-dark-600 dark:text-dark-400">
-                          <Calendar className="w-4 h-4" />
-                          <span>{formatDate(customer.created_at)}</span>
+                          <Calendar className="w-4 h-4 flex-shrink-0" />
+                          <span className="whitespace-nowrap">{formatDate(customer.created_at)}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleViewCustomer(customer)}
                             className="p-2 rounded-lg hover:bg-light-100 dark:hover:bg-dark-700 transition-colors group"
@@ -721,15 +711,15 @@ const CustomerOverview: React.FC = () => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-dark-600 dark:text-dark-400">MLM:</span>
+                      <span className="text-sm text-dark-600 dark:text-dark-400">Team:</span>
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          customer.is_mlm_active
+                          customer.is_active_member
                             ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
                         }`}
                       >
-                        {customer.is_mlm_active ? 'Active' : 'Inactive'}
+                        {customer.is_active_member ? 'Active' : 'Inactive'}
                       </span>
                     </div>
 
@@ -794,7 +784,7 @@ const CustomerOverview: React.FC = () => {
               setShowDetailModal(false)
               setSelectedCustomer(null)
             }}
-            onRefresh={fetchCustomers}
+            onRefresh={handleRefresh}
           />
         )}
       </AnimatePresence>

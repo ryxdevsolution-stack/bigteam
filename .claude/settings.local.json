@@ -26,7 +26,8 @@
       "Bash(./venv/bin/python:*)",
       "Bash(pip3 install:*)",
       "Bash(./venv_new/bin/python:*)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

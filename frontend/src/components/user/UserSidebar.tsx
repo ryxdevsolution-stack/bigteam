@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home,
   User,
-  Network,
   LogOut,
   ChevronDown,
   Sun,
@@ -51,7 +50,6 @@ const UserSidebar: React.FC = () => {
     { id: 'videos', label: 'Videos', icon: Video, path: '/user/videos' },
     { id: 'photos', label: 'Photos', icon: Image, path: '/user/photos' },
     { id: 'meetings', label: 'Meetings', icon: Calendar, path: '/user/meetings' },
-    { id: 'tree-profile', label: 'Tree & Profile', icon: Network, path: '/user/tree-profile' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/user/earnings' },
   ];
 

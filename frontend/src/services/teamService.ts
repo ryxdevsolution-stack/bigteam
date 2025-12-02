@@ -1,6 +1,6 @@
 import api from './api';
 
-export interface MLMSettings {
+export interface TeamSettings {
   activation_amount: number;
   commission_rate: number;
   commission_limit: number;
@@ -18,12 +18,12 @@ export interface Commission {
   payer_email: string;
 }
 
-export interface Referral {
+export interface TeamMember {
   id: string;
   username: string;
   email: string;
   full_name: string;
-  is_mlm_active: boolean;
+  is_active_member: boolean;
   activation_date: string | null;
   total_earnings: number;
 }
@@ -31,14 +31,14 @@ export interface Referral {
 export interface TreeData {
   user: any;
   upline: any | null;
-  downline: Referral[];
+  downline: TeamMember[];
   chain_info: {
     position: number;
     is_active: boolean;
     joined_at: string;
   } | null;
-  total_referrals: number;
-  active_referrals: number;
+  total_team_members: number;
+  active_team_members: number;
 }
 
 export interface PurchaseResult {
@@ -50,55 +50,49 @@ export interface PurchaseResult {
   total_commission_paid: number;
 }
 
-const mlmService = {
-  // Get MLM settings (activation amount, commission rate, etc.)
-  getSettings: async (): Promise<MLMSettings> => {
-    const response = await api.get('/api/user/settings/mlm');
+const teamService = {
+  // Get team settings (activation amount, commission rate, etc.)
+  getSettings: async (): Promise<TeamSettings> => {
+    const response = await api.get('/api/user/settings/team');
     return response.data.settings;
   },
 
   // Create purchase for activation/reactivation
-  createPurchase: async (userId: string, amount: number, sponsoredBy?: string): Promise<PurchaseResult> => {
-    const response = await api.post('/api/mlm/purchase', {
+  createPurchase: async (userId: string, amount: number, invitedBy?: string): Promise<PurchaseResult> => {
+    const response = await api.post('/api/team/purchase', {
       user_id: userId,
       amount,
-      sponsored_by: sponsoredBy
+      invited_by: invitedBy
     });
     return response.data.data;
   },
 
   // Activate user with default activation amount
-  activateUser: async (userId: string, sponsoredBy?: string): Promise<PurchaseResult> => {
-    const response = await api.post('/api/mlm/activate', {
+  activateUser: async (userId: string, invitedBy?: string): Promise<PurchaseResult> => {
+    const response = await api.post('/api/team/activate', {
       user_id: userId,
-      sponsored_by: sponsoredBy
+      invited_by: invitedBy
     });
     return response.data.data;
   },
 
-  // Get MLM tree for a user
+  // Get team tree for a user
   getTree: async (userId: string): Promise<TreeData> => {
-    const response = await api.get(`/api/mlm/tree/${userId}`);
+    const response = await api.get(`/api/team/tree/${userId}`);
     return response.data.tree;
   },
 
-  // Get MLM chain status
+  // Get team chain status
   getChain: async (activeOnly: boolean = false): Promise<any[]> => {
-    const response = await api.get('/api/mlm/chain', {
+    const response = await api.get('/api/team/chain', {
       params: { active_only: activeOnly }
     });
     return response.data.chain;
   },
 
-  // Check if referral code is valid
-  checkReferralCode: async (referralCode: string): Promise<any> => {
-    const response = await api.get(`/api/mlm/check-referral/${referralCode}`);
-    return response.data;
-  },
-
-  // Get global MLM statistics
+  // Get global team statistics
   getGlobalStats: async (): Promise<any> => {
-    const response = await api.get('/api/mlm/stats/global');
+    const response = await api.get('/api/team/stats/global');
     return response.data.stats;
   },
 
@@ -111,4 +105,4 @@ const mlmService = {
   }
 };
 
-export default mlmService;
+export default teamService;

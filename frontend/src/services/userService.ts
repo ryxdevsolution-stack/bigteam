@@ -7,22 +7,21 @@ export interface CreateUserPayload {
   username: string
   password: string
   role?: 'customer' | 'admin'
-  referred_by?: string
   amount?: number
 }
 
 export interface DashboardStats {
   user: User;
-  total_referrals: number;
-  active_referrals: number;
-  inactive_referrals: number;
+  total_team_members: number;
+  active_team_members: number;
+  inactive_team_members: number;
   total_earnings: number;
   available_balance: number;
   pending_balance: number;
   total_commissions: number;
   commission_received_count: number;
-  is_mlm_active: boolean;
-  referral_code: string;
+  is_active_member: boolean;
+  invite_code: string;
   recent_commissions: Array<{
     amount: number;
     created_at: string;
@@ -58,10 +57,10 @@ export const userService = {
     return response.data.stats
   },
 
-  // User referrals
-  getReferrals: async (userId: string) => {
-    const response = await api.get(`/api/user/referrals?user_id=${userId}`)
-    return response.data.referrals
+  // User team members
+  getTeamMembers: async (userId: string) => {
+    const response = await api.get(`/api/user/team-members?user_id=${userId}`)
+    return response.data.team_members
   },
 
   // Validation endpoints
@@ -73,5 +72,11 @@ export const userService = {
   checkUsernameExists: async (username: string) => {
     const response = await api.post<{ exists: boolean }>('/auth/check-username', { username })
     return response.data.exists
+  },
+
+  // Get referrals for a user (users who were referred by this user)
+  getReferrals: async (userId: string) => {
+    const response = await api.get(`/api/user/team-members?user_id=${userId}`)
+    return response.data.team_members || []
   },
 }

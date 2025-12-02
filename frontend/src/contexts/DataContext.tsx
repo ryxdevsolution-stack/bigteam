@@ -1,9 +1,14 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+/**
+ * Data Context - Centralized data fetching with smart caching
+ * Implements per-user cache keys and request deduplication
+ * Optimized for minimal API calls and maximum performance
+ */
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react'
 import { Post } from '../types/post'
 import { User } from '../types/user'
-import api from '../services/api'
+import api, { cacheUtils } from '../services/api'
 import { DashboardStats } from '../services/userService'
-import { TreeData, Commission } from '../services/mlmService'
+import { TreeData, Commission } from '../services/teamService'
 
 export interface HomeData {
   videos: Post[]
@@ -23,136 +28,164 @@ export interface Advertisement {
   end_date?: string
 }
 
+// Admin dashboard metrics
+export interface AdminMetrics {
+  totalUsers: number
+  totalPosts: number
+  engagementRate: number
+  adRevenue: number
+  totalViews: number
+  totalLikes: number
+  totalShares: number
+  totalComments: number
+  videoCount: number
+  imageCount: number
+}
+
+// Cache entry with user-specific key
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+  userId?: string
+}
+
 interface DataContextType {
   // Posts
   posts: Post[]
   postsLoading: boolean
   postsError: string | null
-  lastPostsFetch: number | null
   fetchPosts: (force?: boolean) => Promise<void>
   addPost: (post: Post) => void
   updatePost: (postId: string, updates: Partial<Post>) => void
   deletePost: (postId: string) => void
 
-  // Users
+  // Users (admin)
   users: User[]
   usersLoading: boolean
   usersError: string | null
-  lastUsersFetch: number | null
   fetchUsers: (force?: boolean) => Promise<void>
+  refreshUsers: () => Promise<void>
+
+  // Admin Metrics (derived from posts and users)
+  adminMetrics: AdminMetrics
+  adminMetricsLoading: boolean
 
   // Dashboard Stats
   dashboardStats: DashboardStats | null
   dashboardStatsLoading: boolean
   dashboardStatsError: string | null
-  lastDashboardStatsFetch: number | null
   fetchDashboardStats: (userId: string, force?: boolean) => Promise<void>
 
-  // MLM Tree
-  mlmTree: TreeData | null
-  mlmTreeLoading: boolean
-  mlmTreeError: string | null
-  lastMlmTreeFetch: number | null
-  fetchMlmTree: (userId: string, force?: boolean) => Promise<void>
+  // Team Tree
+  teamTree: TreeData | null
+  teamTreeLoading: boolean
+  teamTreeError: string | null
+  fetchTeamTree: (userId: string, force?: boolean) => Promise<void>
 
   // Commissions
   commissions: Commission[]
   commissionsLoading: boolean
   commissionsError: string | null
-  lastCommissionsFetch: number | null
   fetchCommissions: (userId: string, force?: boolean) => Promise<void>
 
   // User Profile
   userProfile: User | null
   userProfileLoading: boolean
   userProfileError: string | null
-  lastUserProfileFetch: number | null
   fetchUserProfile: (userId: string, force?: boolean) => Promise<void>
 
   // Home Data
   homeData: HomeData | null
   homeDataLoading: boolean
   homeDataError: string | null
-  lastHomeDataFetch: number | null
   fetchHomeData: (force?: boolean) => Promise<void>
+
+  // Clear all cache
+  clearCache: () => void
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-// Cache duration in milliseconds (5 seconds)
-const CACHE_DURATION = 5000
+// Cache duration in milliseconds - increased for better performance
+const CACHE_DURATION = 10000 // 10 seconds
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Posts state
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
   const [postsError, setPostsError] = useState<string | null>(null)
-  const [lastPostsFetch, setLastPostsFetch] = useState<number | null>(null)
+  const postsCache = useRef<CacheEntry<Post[]> | null>(null)
   const postsPromiseRef = useRef<Promise<void> | null>(null)
 
   // Users state
   const [users, setUsers] = useState<User[]>([])
   const [usersLoading, setUsersLoading] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
-  const [lastUsersFetch, setLastUsersFetch] = useState<number | null>(null)
+  const usersCache = useRef<CacheEntry<User[]> | null>(null)
   const usersPromiseRef = useRef<Promise<void> | null>(null)
 
-  // Dashboard Stats state
+  // Dashboard Stats state (per-user cache)
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
   const [dashboardStatsLoading, setDashboardStatsLoading] = useState(false)
   const [dashboardStatsError, setDashboardStatsError] = useState<string | null>(null)
-  const [lastDashboardStatsFetch, setLastDashboardStatsFetch] = useState<number | null>(null)
+  const dashboardStatsCache = useRef<CacheEntry<DashboardStats> | null>(null)
   const dashboardStatsPromiseRef = useRef<Promise<void> | null>(null)
 
-  // MLM Tree state
-  const [mlmTree, setMlmTree] = useState<TreeData | null>(null)
-  const [mlmTreeLoading, setMlmTreeLoading] = useState(false)
-  const [mlmTreeError, setMlmTreeError] = useState<string | null>(null)
-  const [lastMlmTreeFetch, setLastMlmTreeFetch] = useState<number | null>(null)
-  const mlmTreePromiseRef = useRef<Promise<void> | null>(null)
+  // Team Tree state (per-user cache)
+  const [teamTree, setTeamTree] = useState<TreeData | null>(null)
+  const [teamTreeLoading, setTeamTreeLoading] = useState(false)
+  const [teamTreeError, setTeamTreeError] = useState<string | null>(null)
+  const teamTreeCache = useRef<CacheEntry<TreeData> | null>(null)
+  const teamTreePromiseRef = useRef<Promise<void> | null>(null)
 
-  // Commissions state
+  // Commissions state (per-user cache)
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [commissionsLoading, setCommissionsLoading] = useState(false)
   const [commissionsError, setCommissionsError] = useState<string | null>(null)
-  const [lastCommissionsFetch, setLastCommissionsFetch] = useState<number | null>(null)
+  const commissionsCache = useRef<CacheEntry<Commission[]> | null>(null)
   const commissionsPromiseRef = useRef<Promise<void> | null>(null)
 
-  // User Profile state
+  // User Profile state (per-user cache)
   const [userProfile, setUserProfile] = useState<User | null>(null)
   const [userProfileLoading, setUserProfileLoading] = useState(false)
   const [userProfileError, setUserProfileError] = useState<string | null>(null)
-  const [lastUserProfileFetch, setLastUserProfileFetch] = useState<number | null>(null)
+  const userProfileCache = useRef<CacheEntry<User> | null>(null)
   const userProfilePromiseRef = useRef<Promise<void> | null>(null)
 
   // Home Data state
   const [homeData, setHomeData] = useState<HomeData | null>(null)
   const [homeDataLoading, setHomeDataLoading] = useState(false)
   const [homeDataError, setHomeDataError] = useState<string | null>(null)
-  const [lastHomeDataFetch, setLastHomeDataFetch] = useState<number | null>(null)
+  const homeDataCache = useRef<CacheEntry<HomeData> | null>(null)
   const homeDataPromiseRef = useRef<Promise<void> | null>(null)
+
+  // Helper to check if cache is valid
+  const isCacheValid = <T,>(cache: CacheEntry<T> | null, userId?: string): boolean => {
+    if (!cache) return false
+    const now = Date.now()
+    if (now - cache.timestamp > CACHE_DURATION) return false
+    if (userId && cache.userId !== userId) return false
+    return true
+  }
 
   // Fetch posts with caching and deduplication
   const fetchPosts = useCallback(async (force: boolean = false) => {
-    // Check if we need to fetch
-    const now = Date.now()
-    if (!force && lastPostsFetch && now - lastPostsFetch < CACHE_DURATION) {
-      return // Use cached data
+    if (!force && isCacheValid(postsCache.current)) {
+      return
     }
 
-    // If already fetching, return the existing promise
     if (postsPromiseRef.current && !force) {
       return postsPromiseRef.current
     }
 
-    // Create new fetch promise
     const fetchPromise = (async () => {
       setPostsLoading(true)
       setPostsError(null)
       try {
         const response = await api.get('/api/posts')
-        setPosts(response.data || [])
-        setLastPostsFetch(Date.now())
+        const data = response.data || []
+        setPosts(data)
+        postsCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
         setPostsError(error.response?.data?.error || 'Failed to fetch posts')
         setPosts([])
@@ -164,29 +197,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     postsPromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastPostsFetch])
+  }, [])
 
-  // Fetch users with caching and deduplication
+  // Fetch users with caching (admin endpoint)
   const fetchUsers = useCallback(async (force: boolean = false) => {
-    // Check if we need to fetch
-    const now = Date.now()
-    if (!force && lastUsersFetch && now - lastUsersFetch < CACHE_DURATION) {
-      return // Use cached data
+    if (!force && isCacheValid(usersCache.current)) {
+      return
     }
 
-    // If already fetching, return the existing promise
     if (usersPromiseRef.current && !force) {
       return usersPromiseRef.current
     }
 
-    // Create new fetch promise
     const fetchPromise = (async () => {
       setUsersLoading(true)
       setUsersError(null)
       try {
-        const response = await api.get('/auth/users')
-        setUsers(response.data || [])
-        setLastUsersFetch(Date.now())
+        const response = await api.get('/auth/admin/users')
+        const data = response.data || []
+        setUsers(data)
+        usersCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
         setUsersError(error.response?.data?.error || 'Failed to fetch users')
         setUsers([])
@@ -198,12 +228,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     usersPromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastUsersFetch])
+  }, [])
 
   // Post management functions
   const addPost = useCallback((post: Post) => {
     setPosts(prev => [post, ...prev])
-    setLastPostsFetch(Date.now()) // Update cache timestamp
+    if (postsCache.current) {
+      postsCache.current = {
+        data: [post, ...postsCache.current.data],
+        timestamp: Date.now()
+      }
+    }
   }, [])
 
   const updatePost = useCallback((postId: string, updates: Partial<Post>) => {
@@ -216,14 +251,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPosts(prev => prev.filter(post => post.id !== postId))
   }, [])
 
-  // Fetch Dashboard Stats with caching and deduplication
+  // Force refresh users (invalidates cache)
+  const refreshUsers = useCallback(async () => {
+    usersCache.current = null
+    cacheUtils.invalidatePrefix('/auth/admin/users')
+    return fetchUsers(true)
+  }, [fetchUsers])
+
+  // Memoized admin metrics derived from posts and users
+  const adminMetrics = useMemo<AdminMetrics>(() => {
+    const videoCount = posts.filter(p => p.media_type === 'video').length
+    const imageCount = posts.filter(p => p.media_type === 'image').length
+    const totalViews = posts.reduce((acc, p) => acc + (p.views_count || 0), 0)
+    const totalLikes = posts.reduce((acc, p) => acc + (p.likes_count || 0), 0)
+    const totalShares = posts.reduce((acc, p) => acc + (p.shares_count || 0), 0)
+
+    return {
+      totalUsers: users.filter(u => u.role === 'customer').length,
+      totalPosts: posts.length,
+      engagementRate: posts.length > 0
+        ? Math.round((totalLikes + totalShares) / posts.length * 100) / 100
+        : 0,
+      adRevenue: 0, // Would need ads data
+      totalViews,
+      totalLikes,
+      totalShares,
+      totalComments: 0, // Would need comments data
+      videoCount,
+      imageCount
+    }
+  }, [posts, users])
+
+  const adminMetricsLoading = postsLoading || usersLoading
+
+  // Fetch Dashboard Stats with per-user caching
   const fetchDashboardStats = useCallback(async (userId: string, force: boolean = false) => {
-    const now = Date.now()
-    if (!force && lastDashboardStatsFetch && now - lastDashboardStatsFetch < CACHE_DURATION) {
+    // Check cache with user ID validation
+    if (!force && isCacheValid(dashboardStatsCache.current, userId)) {
       return
     }
 
-    if (dashboardStatsPromiseRef.current && !force) {
+    // Check if we're already fetching for this user
+    if (dashboardStatsPromiseRef.current && !force && dashboardStatsCache.current?.userId === userId) {
       return dashboardStatsPromiseRef.current
     }
 
@@ -232,8 +301,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDashboardStatsError(null)
       try {
         const response = await api.get(`/api/user/dashboard-stats?user_id=${userId}`)
-        setDashboardStats(response.data.stats)
-        setLastDashboardStatsFetch(Date.now())
+        const data = response.data.stats
+        setDashboardStats(data)
+        dashboardStatsCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
         setDashboardStatsError(error.response?.data?.error || 'Failed to fetch dashboard stats')
         setDashboardStats(null)
@@ -245,47 +315,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     dashboardStatsPromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastDashboardStatsFetch])
+  }, [])
 
-  // Fetch MLM Tree with caching and deduplication
-  const fetchMlmTree = useCallback(async (userId: string, force: boolean = false) => {
-    const now = Date.now()
-    if (!force && lastMlmTreeFetch && now - lastMlmTreeFetch < CACHE_DURATION) {
+  // Fetch Team Tree with per-user caching
+  const fetchTeamTree = useCallback(async (userId: string, force: boolean = false) => {
+    if (!force && isCacheValid(teamTreeCache.current, userId)) {
       return
     }
 
-    if (mlmTreePromiseRef.current && !force) {
-      return mlmTreePromiseRef.current
+    if (teamTreePromiseRef.current && !force && teamTreeCache.current?.userId === userId) {
+      return teamTreePromiseRef.current
     }
 
     const fetchPromise = (async () => {
-      setMlmTreeLoading(true)
-      setMlmTreeError(null)
+      setTeamTreeLoading(true)
+      setTeamTreeError(null)
       try {
-        const response = await api.get(`/api/mlm/tree/${userId}`)
-        setMlmTree(response.data.tree)
-        setLastMlmTreeFetch(Date.now())
+        const response = await api.get(`/api/team/tree/${userId}`)
+        const data = response.data.tree
+        setTeamTree(data)
+        teamTreeCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
-        setMlmTreeError(error.response?.data?.error || 'Failed to fetch MLM tree')
-        setMlmTree(null)
+        setTeamTreeError(error.response?.data?.error || 'Failed to fetch team tree')
+        setTeamTree(null)
       } finally {
-        setMlmTreeLoading(false)
-        mlmTreePromiseRef.current = null
+        setTeamTreeLoading(false)
+        teamTreePromiseRef.current = null
       }
     })()
 
-    mlmTreePromiseRef.current = fetchPromise
+    teamTreePromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastMlmTreeFetch])
+  }, [])
 
-  // Fetch Commissions with caching and deduplication
+  // Fetch Commissions with per-user caching
   const fetchCommissions = useCallback(async (userId: string, force: boolean = false) => {
-    const now = Date.now()
-    if (!force && lastCommissionsFetch && now - lastCommissionsFetch < CACHE_DURATION) {
+    if (!force && isCacheValid(commissionsCache.current, userId)) {
       return
     }
 
-    if (commissionsPromiseRef.current && !force) {
+    if (commissionsPromiseRef.current && !force && commissionsCache.current?.userId === userId) {
       return commissionsPromiseRef.current
     }
 
@@ -296,8 +365,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const response = await api.get('/api/user/commissions', {
           params: { user_id: userId, limit: 50 }
         })
-        setCommissions(response.data.commissions || [])
-        setLastCommissionsFetch(Date.now())
+        const data = response.data.commissions || []
+        setCommissions(data)
+        commissionsCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
         setCommissionsError(error.response?.data?.error || 'Failed to fetch commissions')
         setCommissions([])
@@ -309,16 +379,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     commissionsPromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastCommissionsFetch])
+  }, [])
 
-  // Fetch User Profile with caching and deduplication
+  // Fetch User Profile with per-user caching
   const fetchUserProfile = useCallback(async (userId: string, force: boolean = false) => {
-    const now = Date.now()
-    if (!force && lastUserProfileFetch && now - lastUserProfileFetch < CACHE_DURATION) {
+    if (!force && isCacheValid(userProfileCache.current, userId)) {
       return
     }
 
-    if (userProfilePromiseRef.current && !force) {
+    if (userProfilePromiseRef.current && !force && userProfileCache.current?.userId === userId) {
       return userProfilePromiseRef.current
     }
 
@@ -327,8 +396,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfileError(null)
       try {
         const response = await api.get(`/api/user/profile?user_id=${userId}`)
-        setUserProfile(response.data.user)
-        setLastUserProfileFetch(Date.now())
+        const data = response.data.user
+        setUserProfile(data)
+        userProfileCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
         setUserProfileError(error.response?.data?.error || 'Failed to fetch user profile')
         setUserProfile(null)
@@ -340,12 +410,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     userProfilePromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastUserProfileFetch])
+  }, [])
 
-  // Fetch Home Data with caching and deduplication
+  // Fetch Home Data with caching
   const fetchHomeData = useCallback(async (force: boolean = false) => {
-    const now = Date.now()
-    if (!force && lastHomeDataFetch && now - lastHomeDataFetch < CACHE_DURATION) {
+    if (!force && isCacheValid(homeDataCache.current)) {
       return
     }
 
@@ -358,8 +427,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHomeDataError(null)
       try {
         const response = await api.get('/api/user/home-data')
-        setHomeData(response.data.data)
-        setLastHomeDataFetch(Date.now())
+        const data = response.data.data
+        setHomeData(data)
+        homeDataCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
         setHomeDataError(error.response?.data?.error || 'Failed to fetch home data')
         setHomeData(null)
@@ -371,60 +441,74 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     homeDataPromiseRef.current = fetchPromise
     return fetchPromise
-  }, [lastHomeDataFetch])
+  }, [])
+
+  // Clear all cache (both local refs and API cache)
+  const clearCache = useCallback(() => {
+    postsCache.current = null
+    usersCache.current = null
+    dashboardStatsCache.current = null
+    teamTreeCache.current = null
+    commissionsCache.current = null
+    userProfileCache.current = null
+    homeDataCache.current = null
+    // Also clear the API-level cache
+    cacheUtils.clearAll()
+  }, [])
 
   const value: DataContextType = {
     // Posts
     posts,
     postsLoading,
     postsError,
-    lastPostsFetch,
     fetchPosts,
     addPost,
     updatePost,
     deletePost,
 
-    // Users
+    // Users (admin)
     users,
     usersLoading,
     usersError,
-    lastUsersFetch,
     fetchUsers,
+    refreshUsers,
+
+    // Admin Metrics (derived from posts and users)
+    adminMetrics,
+    adminMetricsLoading,
 
     // Dashboard Stats
     dashboardStats,
     dashboardStatsLoading,
     dashboardStatsError,
-    lastDashboardStatsFetch,
     fetchDashboardStats,
 
-    // MLM Tree
-    mlmTree,
-    mlmTreeLoading,
-    mlmTreeError,
-    lastMlmTreeFetch,
-    fetchMlmTree,
+    // Team Tree
+    teamTree,
+    teamTreeLoading,
+    teamTreeError,
+    fetchTeamTree,
 
     // Commissions
     commissions,
     commissionsLoading,
     commissionsError,
-    lastCommissionsFetch,
     fetchCommissions,
 
     // User Profile
     userProfile,
     userProfileLoading,
     userProfileError,
-    lastUserProfileFetch,
     fetchUserProfile,
 
     // Home Data
     homeData,
     homeDataLoading,
     homeDataError,
-    lastHomeDataFetch,
     fetchHomeData,
+
+    // Cache control
+    clearCache,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

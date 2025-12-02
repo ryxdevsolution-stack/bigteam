@@ -18,7 +18,7 @@ interface Advertisement {
   media_type: 'video' | 'image'
   media_url: string
   ad_type: 'banner' | 'in_stream'
-  is_active: boolean
+  status: 'active' | 'inactive' | 'scheduled'
   start_date: string | null
   end_date: string | null
   created_at: string
@@ -125,7 +125,7 @@ const AdManagement: React.FC = () => {
     try {
       const response = await api.patch(`/api/ads/${adId}/toggle`)
       setAds(ads.map(ad =>
-        ad.id === adId ? { ...ad, is_active: response.data.is_active } : ad
+        ad.id === adId ? { ...ad, status: response.data.status } : ad
       ))
     } catch (error) {
       console.error('Failed to toggle status:', error)
@@ -456,8 +456,8 @@ const AdManagement: React.FC = () => {
               </div>
               <div>
                 <span className="text-gray-500">Status:</span>
-                <span className={`ml-2 font-medium ${selectedAd.is_active ? 'text-green-600' : 'text-gray-500'}`}>
-                  {selectedAd.is_active ? 'Active' : 'Inactive'}
+                <span className={`ml-2 font-medium ${selectedAd.status === 'active' ? 'text-green-600' : 'text-gray-500'}`}>
+                  {selectedAd.status === 'active' ? 'Active' : selectedAd.status === 'scheduled' ? 'Scheduled' : 'Inactive'}
                 </span>
               </div>
               {selectedAd.start_date && (
@@ -566,13 +566,13 @@ const AdManagement: React.FC = () => {
                         onClick={() => toggleAdStatus(ad.id)}
                         className="flex items-center gap-2"
                       >
-                        {ad.is_active ? (
+                        {ad.status === 'active' ? (
                           <ToggleRight className="w-6 h-6 text-green-500" />
                         ) : (
                           <ToggleLeft className="w-6 h-6 text-gray-400" />
                         )}
-                        <span className={`text-xs ${ad.is_active ? 'text-green-600' : 'text-gray-500'}`}>
-                          {ad.is_active ? 'Active' : 'Inactive'}
+                        <span className={`text-xs ${ad.status === 'active' ? 'text-green-600' : 'text-gray-500'}`}>
+                          {ad.status === 'active' ? 'Active' : ad.status === 'scheduled' ? 'Scheduled' : 'Inactive'}
                         </span>
                       </button>
                     </td>

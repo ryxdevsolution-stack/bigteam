@@ -1,29 +1,29 @@
 import React, { useEffect } from 'react';
 import { useData } from '../../../contexts/DataContext';
-import MLMTree from '../../../pages/user/MLMTree';
+import TeamStructure from '../../../pages/user/TeamStructure';
 import UserProfile from '../../../pages/user/Profile';
 
 const TreeProfileTab: React.FC = () => {
   const {
-    fetchMlmTree,
+    fetchTeamTree,
     fetchUserProfile
   } = useData();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     if (user.id) {
-      fetchMlmTree(user.id);
+      fetchTeamTree(user.id);
       fetchUserProfile(user.id);
     }
-  }, [user.id, fetchMlmTree, fetchUserProfile]);
+  }, [user.id, fetchTeamTree, fetchUserProfile]);
 
   return (
     <div className="space-y-6">
       {/* Profile Section */}
       <UserProfile />
 
-      {/* MLM Tree Section */}
-      <MLMTree />
+      {/* Team Structure Section */}
+      <TeamStructure />
     </div>
   );
 };

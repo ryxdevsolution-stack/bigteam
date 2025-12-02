@@ -13,7 +13,8 @@ import {
   User,
   ChevronDown,
   Palette,
-  Megaphone
+  Megaphone,
+  Video
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -52,6 +53,7 @@ const Sidebar: React.FC = () => {
     { id: 'customers', label: 'User Management', icon: Users, path: '/admin/customers' },
     { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
     { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
+    { id: 'meetings', label: 'Meetings', icon: Video, path: '/admin/meetings' },
     { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },
   ];
 

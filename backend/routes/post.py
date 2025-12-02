@@ -1,139 +1,149 @@
+"""
+Post Routes - Content upload and management endpoints
+All endpoints require proper authentication and authorization
+"""
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import time
 from uuid import uuid4
 import os
 from datetime import datetime
-import ssl
-import certifi
-import base64
 
-from utils.db import get_db_connection, return_db_connection, supabase  # Your existing db.py
+from utils.db import get_db_connection, return_db_connection, supabase
+from utils.auth import token_required, admin_required, get_current_user_id, get_current_user_role
+from utils.validators import sanitize_string, validate_media_type, validate_file_extension, validate_file_content
 
 post_bp = Blueprint("posts", __name__)
 
-ALLOWED_EXTENSIONS = {"mp4", "mov", "jpg", "jpeg", "png", "gif"}
+ALLOWED_EXTENSIONS = {"mp4", "mov", "jpg", "jpeg", "png", "gif", "webp"}
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 bucket_name = "bigteam-video"
+
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 def ensure_bucket_exists():
     """Ensure the storage bucket exists in Supabase"""
     try:
-        # Try to list buckets to check if our bucket exists
         buckets = supabase.storage.list_buckets()
         bucket_exists = any(b.name == bucket_name for b in buckets)
 
         if not bucket_exists:
-            # Create the bucket if it doesn't exist
             supabase.storage.create_bucket(bucket_name, {
-                'public': True,  # Make bucket public for media access
+                'public': True,
                 'allowed_mime_types': ['image/*', 'video/*']
             })
-            print(f"Created bucket: {bucket_name}")
         return True
-    except Exception as e:
-        print(f"Error checking/creating bucket: {str(e)}")
-        # Try alternative method to create bucket
+    except Exception:
         try:
             supabase.storage.create_bucket(bucket_name, public=True)
-            print(f"Created bucket: {bucket_name} (alternative method)")
             return True
-        except:
-            # Bucket might already exist, continue
+        except Exception:
             return True
 
-# Ensure bucket exists on startup
+
 ensure_bucket_exists()
 
+
 @post_bp.route("/upload", methods=["POST"])
+@token_required
 def upload_post():
-    # Validate file existence
+    """Upload a new post (authenticated users only)"""
+    # Get current user from token
+    current_user_id = get_current_user_id()
+
     if "file" not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
     file = request.files["file"]
-    title = request.form.get("title")
-    content = request.form.get("content", "")
-    media_type = request.form.get("media_type")  # 'video' or 'image'
-    created_by = request.form.get("created_by")  # user UUID
-    thumbnail_file = request.files.get("thumbnail", None)  # optional thumbnail file
+    title = sanitize_string(request.form.get("title", ""), max_length=255)
+    content = sanitize_string(request.form.get("content", ""), max_length=5000)
+    media_type = request.form.get("media_type", "").lower()
+    thumbnail_file = request.files.get("thumbnail", None)
     thumbnail_url = None
 
     # Validate required fields
     if not file or file.filename == "":
         return jsonify({"error": "No selected file"}), 400
-    if not title or not media_type or not created_by:
-        return jsonify({"error": "Missing required fields"}), 400
-    if media_type not in ["video", "image", "ad"]:
-        return jsonify({"error": "Invalid media_type"}), 400
-    if not allowed_file(file.filename):
-        return jsonify({"error": "File type not allowed"}), 400
 
-    # Create a unique filename with folder structure
-    ext = file.filename.rsplit(".", 1)[1].lower()
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    # Validate media type
+    is_valid, result = validate_media_type(media_type)
+    if not is_valid:
+        return jsonify({"error": result}), 400
+
+    # Validate file extension
+    is_valid, ext = validate_file_extension(file.filename, ALLOWED_EXTENSIONS)
+    if not is_valid:
+        return jsonify({"error": ext}), 400
+
+    # Check file size
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({"error": f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"}), 400
+
+    # Create unique filename with folder structure
     base_filename = f"{media_type}_{uuid4().hex}_{int(time.time())}.{ext}"
 
-    # Add folder prefix based on media type
     if media_type == "video":
         filename = f"video/{base_filename}"
     elif media_type == "image":
         filename = f"image/{base_filename}"
     elif media_type == "ad":
+        # Only admins can upload ads
+        if get_current_user_role() != 'admin':
+            return jsonify({"error": "Only admins can upload advertisements"}), 403
         filename = f"Ad/{base_filename}"
     else:
         filename = base_filename
 
-    # Read file content
-    file.seek(0)  # Ensure we're at the beginning of the file
     file_content = file.read()
 
-    # Upload thumbnail first if provided (for videos)
+    # SECURITY: Validate file content matches claimed type (prevents extension spoofing)
+    is_valid, content_result = validate_file_content(file_content, media_type)
+    if not is_valid:
+        return jsonify({"error": content_result}), 400
+
+    # Upload thumbnail if provided (for videos)
     if thumbnail_file and media_type == "video":
         try:
             thumbnail_ext = "jpg"
-            # Save thumbnail in video folder with videos
             thumbnail_filename = f"video/thumbnail_{uuid4().hex}_{int(time.time())}.{thumbnail_ext}"
             thumbnail_file.seek(0)
             thumbnail_content = thumbnail_file.read()
 
-            # Upload thumbnail to Supabase
-            thumbnail_response = supabase.storage.from_(bucket_name).upload(
+            supabase.storage.from_(bucket_name).upload(
                 path=thumbnail_filename,
                 file=thumbnail_content,
                 file_options={"content-type": "image/jpeg"}
             )
             thumbnail_url = supabase.storage.from_(bucket_name).get_public_url(thumbnail_filename)
-            print(f"Thumbnail uploaded successfully: {thumbnail_filename}")
-        except Exception as e:
-            print(f"Thumbnail upload failed (continuing without thumbnail): {str(e)}")
+        except Exception:
             thumbnail_url = None
 
     # Upload to Supabase Storage
     try:
-        # Method 1: Direct upload with file bytes
-        response = supabase.storage.from_(bucket_name).upload(
+        supabase.storage.from_(bucket_name).upload(
             path=filename,
             file=file_content,
             file_options={"content-type": file.content_type}
         )
-
-        # Get public URL
         media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-        print(f"File uploaded successfully to Supabase: {filename}")
 
     except Exception as e:
         error_msg = str(e)
-        print(f"Supabase upload error: {error_msg}")
 
-        # If it's a duplicate file error, try to get the existing URL
         if "duplicate" in error_msg.lower() or "already exists" in error_msg.lower():
             try:
                 media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-                print(f"File already exists, using existing URL: {media_url}")
-            except:
-                # Generate a new filename and retry with folder structure
+            except Exception:
                 base_filename = f"{media_type}_{uuid4().hex}_{int(time.time())}_retry.{ext}"
                 if media_type == "video":
                     filename = f"video/{base_filename}"
@@ -144,22 +154,17 @@ def upload_post():
                 else:
                     filename = base_filename
                 try:
-                    response = supabase.storage.from_(bucket_name).upload(
+                    supabase.storage.from_(bucket_name).upload(
                         path=filename,
                         file=file_content,
                         file_options={"content-type": file.content_type}
                     )
                     media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-                    print(f"Uploaded with new filename: {filename}")
                 except Exception as retry_error:
-                    return jsonify({"error": f"Upload failed after retry: {str(retry_error)}"}), 500
+                    return jsonify({"error": "Upload failed"}), 500
         else:
-            # Try alternative upload method
             try:
-                # Ensure bucket exists
                 ensure_bucket_exists()
-
-                # Try with a simpler approach but keep folder structure
                 base_filename = f"{media_type}_{int(time.time())}.{ext}"
                 if media_type == "video":
                     filename = f"video/{base_filename}"
@@ -169,64 +174,43 @@ def upload_post():
                     filename = f"Ad/{base_filename}"
                 else:
                     filename = base_filename
-                response = supabase.storage.from_(bucket_name).upload(filename, file_content)
+                supabase.storage.from_(bucket_name).upload(filename, file_content)
                 media_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-                print(f"Uploaded using alternative method: {filename}")
 
-            except Exception as alt_error:
-                return jsonify({
-                    "error": "Supabase upload failed. Please check your Supabase configuration.",
-                    "details": str(alt_error)
-                }), 500
+            except Exception:
+                return jsonify({"error": "Upload failed"}), 500
 
-    # Generate a unique post ID
-    post_id = str(uuid4())
-    created_at = datetime.now().isoformat()
-
-    # Save post info to DB (REQUIRED - don't continue without saving)
+    # Save post to database with authenticated user as creator
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Ensure created_by is a valid UUID or use NULL
-        if not created_by or created_by == '1':
-            created_by = None  # Use NULL for anonymous posts
-
         cur.execute("""
             INSERT INTO posts (title, content, media_type, media_url, thumbnail_url, created_by, is_published)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id, created_at;
-        """, (title, content, media_type, media_url, thumbnail_url, created_by, True))
+        """, (title, content, media_type, media_url, thumbnail_url, current_user_id, True))
 
         result = cur.fetchone()
-        if result:
-            post_id = str(result[0])
-            created_at = result[1].isoformat() if result[1] else datetime.now().isoformat()
+        post_id = str(result[0])
+        created_at = result[1].isoformat() if result[1] else datetime.now().isoformat()
 
         conn.commit()
-        print(f"Post saved to database with ID: {post_id}")
 
     except Exception as e:
-        print(f"Database error: {str(e)}")
         if conn:
             conn.rollback()
-        # Return error - don't continue without saving to database
-        return jsonify({
-            "error": "Failed to save post to database",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": "Failed to save post"}), 500
     finally:
         if conn:
             if 'cur' in locals():
                 cur.close()
             return_db_connection(conn)
 
-    # For images, use the image URL as thumbnail if no thumbnail provided
     if media_type == "image" and not thumbnail_url:
         thumbnail_url = media_url
 
-    # Return response
     return jsonify({
         "message": "Post uploaded successfully",
         "post": {
@@ -235,72 +219,36 @@ def upload_post():
             "content": content,
             "media_type": media_type,
             "media_url": media_url,
-            "thumbnail_url": thumbnail_url or media_url,  # Use media_url as thumbnail if not provided
-            "created_by": created_by,
+            "thumbnail_url": thumbnail_url or media_url,
+            "created_by": current_user_id,
             "created_at": created_at
         }
     }), 201
 
-# Removed local file serving - using Supabase storage only
-
-@post_bp.route("/api/storage/check", methods=["GET"])
-def check_storage():
-    """Check Supabase storage configuration"""
-    try:
-        # List all buckets
-        buckets = supabase.storage.list_buckets()
-        bucket_names = [b.name for b in buckets] if buckets else []
-
-        # Check if our bucket exists
-        bucket_exists = bucket_name in bucket_names
-
-        # Try to create bucket if it doesn't exist
-        if not bucket_exists:
-            try:
-                supabase.storage.create_bucket(bucket_name, public=True)
-                message = f"Bucket '{bucket_name}' created successfully"
-                bucket_exists = True
-            except Exception as create_error:
-                message = f"Bucket creation failed: {str(create_error)}"
-        else:
-            message = f"Bucket '{bucket_name}' already exists"
-
-        return jsonify({
-            "buckets": bucket_names,
-            "target_bucket": bucket_name,
-            "bucket_exists": bucket_exists,
-            "message": message,
-            "supabase_url": os.getenv("SUPABASE_URL", "Not configured")
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "message": "Failed to connect to Supabase storage"
-        }), 500
 
 @post_bp.route("/api/posts", methods=["GET"])
+@token_required
 def get_posts():
-    """Get all posts from database"""
+    """Get all posts (authenticated users only)"""
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Fetch all posts from database
         cur.execute("""
             SELECT id, title, content, media_type, media_url, thumbnail_url,
-                   created_by, created_at, is_published
+                   created_by, created_at, is_published, likes_count, shares_count, views_count
             FROM posts
+            WHERE is_published = true
             ORDER BY created_at DESC
         """)
         posts = cur.fetchall()
         cur.close()
 
-        # Format posts for response
         formatted_posts = []
         for post in posts:
             formatted_posts.append({
-                "id": str(post[0]) if post[0] else str(uuid4()),
+                "id": str(post[0]),
                 "title": post[1] or "Untitled",
                 "content": post[2] or "",
                 "media_type": post[3] or "image",
@@ -308,43 +256,41 @@ def get_posts():
                 "thumbnail_url": post[5] or post[4] or "",
                 "created_by": str(post[6]) if post[6] else "unknown",
                 "created_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
-                "updated_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
-                "is_published": post[8] if len(post) > 8 else True,
-                "likes_count": 0,
-                "shares_count": 0,
-                "views_count": 0
+                "is_published": post[8] if post[8] is not None else True,
+                "likes_count": post[9] or 0,
+                "shares_count": post[10] or 0,
+                "views_count": post[11] or 0
             })
 
-        print(f"Returning {len(formatted_posts)} posts from database")
         return jsonify(formatted_posts), 200
 
-    except Exception as e:
-        print(f"Database error in get_posts: {str(e)}")
-        # Return empty array if database fails
+    except Exception:
         return jsonify([]), 200
     finally:
         if conn:
             return_db_connection(conn)
 
+
 @post_bp.route("/api/posts/<post_id>", methods=["GET"])
+@token_required
 def get_post(post_id):
-    """Get single post by ID from database"""
+    """Get single post by ID (authenticated users only)"""
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
             SELECT id, title, content, media_type, media_url, thumbnail_url,
-                   created_by, created_at
+                   created_by, created_at, likes_count, shares_count, views_count
             FROM posts
             WHERE id = %s
         """, (post_id,))
         post = cur.fetchone()
         cur.close()
-        conn.close()
 
         if post:
             return jsonify({
-                "id": str(post[0]) if post[0] else post_id,
+                "id": str(post[0]),
                 "title": post[1] or "Untitled",
                 "content": post[2] or "",
                 "media_type": post[3] or "image",
@@ -352,22 +298,24 @@ def get_post(post_id):
                 "thumbnail_url": post[5] or post[4] or "",
                 "created_by": str(post[6]) if post[6] else "unknown",
                 "created_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
-                "updated_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
-                "is_published": True,
-                "likes_count": 0,
-                "shares_count": 0,
-                "views_count": 0
+                "likes_count": post[8] or 0,
+                "shares_count": post[9] or 0,
+                "views_count": post[10] or 0
             }), 200
         else:
             return jsonify({"error": "Post not found"}), 404
 
-    except Exception as e:
-        print(f"Database error: {str(e)}")
+    except Exception:
         return jsonify({"error": "Failed to fetch post"}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
+
 
 @post_bp.route("/api/admin/posts/<post_id>", methods=["PUT", "PATCH"])
+@admin_required
 def update_post(post_id):
-    """Update post (including publish/unpublish status)"""
+    """Update post (admin only)"""
     conn = None
     try:
         data = request.get_json()
@@ -377,24 +325,35 @@ def update_post(post_id):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Build dynamic update query with allowed fields
         allowed_fields = ['title', 'content', 'is_published', 'thumbnail_url']
-        update_fields = {k: v for k, v in data.items() if k in allowed_fields}
+        update_fields = {}
+
+        for key in allowed_fields:
+            if key in data:
+                if key in ['title', 'content']:
+                    update_fields[key] = sanitize_string(str(data[key]), max_length=5000 if key == 'content' else 255)
+                else:
+                    update_fields[key] = data[key]
 
         if not update_fields:
             return jsonify({"error": "No valid fields to update"}), 400
 
-        # Build SET clause dynamically
+        # SECURITY: Whitelist-based column name validation to prevent SQL injection
+        ALLOWED_COLUMNS = {'title', 'content', 'is_published', 'thumbnail_url'}
         set_parts = []
         values = []
+
         for key, value in update_fields.items():
-            set_parts.append(f"{key} = %s")
-            values.append(value)
+            if key in ALLOWED_COLUMNS:
+                set_parts.append(f"{key} = %s")
+                values.append(value)
+
+        if not set_parts:
+            return jsonify({"error": "No valid fields to update"}), 400
 
         set_clause = ', '.join(set_parts)
         values.append(post_id)
 
-        # Execute update with RETURNING clause to get updated post
         cur.execute(f"""
             UPDATE posts
             SET {set_clause}, updated_at = CURRENT_TIMESTAMP
@@ -407,14 +366,12 @@ def update_post(post_id):
         updated_post = cur.fetchone()
 
         if not updated_post:
-            cur.close()
-            return_db_connection(conn)
             return jsonify({"error": "Post not found"}), 404
 
         conn.commit()
+        cur.close()
 
-        # Format response
-        response_data = {
+        return jsonify({
             "id": str(updated_post[0]),
             "title": updated_post[1],
             "content": updated_post[2],
@@ -428,42 +385,51 @@ def update_post(post_id):
             "likes_count": updated_post[10] or 0,
             "shares_count": updated_post[11] or 0,
             "views_count": updated_post[12] or 0
-        }
+        }), 200
 
-        cur.close()
-        return jsonify(response_data), 200
-
-    except Exception as e:
-        print(f"Database error in update_post: {str(e)}")
+    except Exception:
         if conn:
             conn.rollback()
-        return jsonify({"error": "Failed to update post", "details": str(e)}), 500
+        return jsonify({"error": "Failed to update post"}), 500
     finally:
         if conn:
             return_db_connection(conn)
 
+
 @post_bp.route("/api/posts/<post_id>", methods=["DELETE"])
+@admin_required
 def delete_post(post_id):
-    """Delete a post from database"""
+    """Delete a post (admin only)"""
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+
+        # Check if post exists
+        cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
+        if not cur.fetchone():
+            return jsonify({"error": "Post not found"}), 404
+
         cur.execute("DELETE FROM posts WHERE id = %s", (post_id,))
         conn.commit()
         cur.close()
-        conn.close()
-        return jsonify({"message": "Post deleted successfully"}), 200
-    except Exception as e:
-        print(f"Database error: {str(e)}")
-        return jsonify({"error": "Failed to delete post"}), 500
 
-@post_bp.route("/api/posts/cleanup/test-data", methods=["DELETE"])
+        return jsonify({"message": "Post deleted successfully"}), 200
+    except Exception:
+        return jsonify({"error": "Failed to delete post"}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+@post_bp.route("/api/admin/posts/cleanup/test-data", methods=["DELETE"])
+@admin_required
 def cleanup_test_data():
-    """Remove all test data from posts table"""
+    """Remove test data from posts table (admin only)"""
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # Delete posts with obvious test data patterns
         cur.execute("""
             DELETE FROM posts
             WHERE LOWER(title) LIKE '%test%'
@@ -471,16 +437,17 @@ def cleanup_test_data():
                OR LOWER(content) LIKE '%test%'
                OR LOWER(content) LIKE '%lorem%'
                OR LOWER(content) LIKE '%ipsum%'
-               OR title IN ('sample file 1', 'sample file 2', 'test file')
         """)
         affected = cur.rowcount
         conn.commit()
         cur.close()
-        conn.close()
+
         return jsonify({
             "message": f"Cleaned up {affected} test posts",
             "deleted_count": affected
         }), 200
-    except Exception as e:
-        print(f"Database error: {str(e)}")
+    except Exception:
         return jsonify({"error": "Failed to cleanup test data"}), 500
+    finally:
+        if conn:
+            return_db_connection(conn)

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../../contexts/DataContext';
+import { CarouselSkeleton } from '../shared/Skeleton';
 
 const gradients = [
   'from-accent-bitcoin/10 via-accent-orange/10 to-accent-gold/10',
@@ -10,11 +11,12 @@ const gradients = [
   'from-indigo-500/10 via-blue-500/10 to-cyan-500/10'
 ];
 
-const SponsorCarousel: React.FC = () => {
+const SponsorCarousel: React.FC = memo(() => {
   const { homeData, homeDataLoading } = useData();
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const ads = homeData?.ads || [];
+  // Memoize ads array
+  const ads = useMemo(() => homeData?.ads || [], [homeData?.ads]);
   const hasAds = ads.length > 0;
 
   useEffect(() => {
@@ -27,12 +29,9 @@ const SponsorCarousel: React.FC = () => {
     }
   }, [hasAds, ads.length]);
 
-  if (homeDataLoading) {
-    return (
-      <div className="flex items-center justify-center py-12 bg-gradient-to-br from-accent-bitcoin/10 via-accent-orange/10 to-accent-gold/10 rounded-xl sm:rounded-2xl">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-orange"></div>
-      </div>
-    );
+  // Show skeleton only on initial load
+  if (homeDataLoading && !homeData) {
+    return <CarouselSkeleton />;
   }
 
   if (!hasAds) {
@@ -124,6 +123,8 @@ const SponsorCarousel: React.FC = () => {
       </AnimatePresence>
     </div>
   );
-};
+});
+
+SponsorCarousel.displayName = 'SponsorCarousel';
 
 export default SponsorCarousel;

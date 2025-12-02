@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Image as ImageIcon, X, Heart, Share2, Eye, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
+import { PhotoGridSkeleton } from '../../shared/Skeleton';
 
-const PhotoTab: React.FC = () => {
+const PhotoTab: React.FC = memo(() => {
   const navigate = useNavigate();
   const { posts, postsLoading, fetchPosts } = useData();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  const photos = posts.filter(post => post.media_type === 'image');
+  // Memoize filtered photos
+  const photos = useMemo(() => posts.filter(post => post.media_type === 'image'), [posts]);
 
+  // Only fetch if posts are empty - DataContext handles caching
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    if (posts.length === 0) {
+      fetchPosts();
+    }
+  }, [fetchPosts, posts.length]);
 
   const handlePhotoClick = (index: number) => {
     setSelectedPhotoIndex(index);
@@ -59,10 +64,18 @@ const PhotoTab: React.FC = () => {
     }
   };
 
-  if (postsLoading) {
+  // Show skeleton loading only on initial load
+  if (postsLoading && posts.length === 0) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-orange"></div>
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-light-200 dark:bg-dark-700 rounded-lg animate-pulse" />
+            <div className="h-8 w-32 bg-light-200 dark:bg-dark-700 rounded animate-pulse" />
+          </div>
+          <div className="h-4 w-48 bg-light-200 dark:bg-dark-700 rounded animate-pulse ml-14" />
+        </div>
+        <PhotoGridSkeleton count={8} />
       </div>
     );
   }
@@ -232,6 +245,8 @@ const PhotoTab: React.FC = () => {
       </AnimatePresence>
     </>
   );
-};
+});
+
+PhotoTab.displayName = 'PhotoTab';
 
 export default PhotoTab;

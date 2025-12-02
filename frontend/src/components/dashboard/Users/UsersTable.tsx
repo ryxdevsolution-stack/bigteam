@@ -212,7 +212,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-1">
                     <span className="text-sm font-semibold text-dark-900 dark:text-white">
-                      ${(user.amount || 0).toFixed(2)}
+                      🪙{(user.amount || 0).toFixed(2)}
                     </span>
                   </div>
                 </td>
@@ -307,7 +307,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onRefresh }) =>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-dark-600 dark:text-dark-400">Amount:</span>
                 <span className="text-sm font-semibold text-dark-900 dark:text-white">
-                  ${(user.amount || 0).toFixed(2)}
+                  🪙{(user.amount || 0).toFixed(2)}
                 </span>
               </div>
 

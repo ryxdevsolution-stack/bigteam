@@ -1,23 +1,22 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Play, Video, Calendar, ArrowRight } from 'lucide-react';
 import SponsorCarousel from '../SponsorCarousel';
 import { useData } from '../../../contexts/DataContext';
+import { HomeContentSkeleton } from '../../shared/Skeleton';
 
-const HomeTab: React.FC = () => {
+const HomeTab: React.FC = memo(() => {
   const { homeData, homeDataLoading } = useData();
 
-  if (homeDataLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-orange"></div>
-      </div>
-    );
+  // Show skeleton only on initial load
+  if (homeDataLoading && !homeData) {
+    return <HomeContentSkeleton />;
   }
 
-  const videos = homeData?.videos || [];
-  const photos = homeData?.photos || [];
+  // Memoize arrays to prevent unnecessary re-renders of child components
+  const videos = useMemo(() => homeData?.videos || [], [homeData?.videos]);
+  const photos = useMemo(() => homeData?.photos || [], [homeData?.photos]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -172,6 +171,9 @@ const HomeTab: React.FC = () => {
       </motion.div>
     </div>
   );
-};
+});
+
+// Add display name for debugging
+HomeTab.displayName = 'HomeTab';
 
 export default HomeTab;

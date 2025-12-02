@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Users, UserPlus, Search, Filter, ChevronDown } from 'lucide-react'
 import { userService, CreateUserPayload } from '../../services/userService'
@@ -9,6 +10,7 @@ import UsersTable from '../../components/dashboard/Users/UsersTable'
 type TabType = 'create' | 'view'
 
 const UserManagement: React.FC = () => {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<TabType>('view')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
@@ -16,6 +18,16 @@ const UserManagement: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRole, setFilterRole] = useState<'all' | 'customer'>('all')
+
+  // Handle auth errors by redirecting to login
+  const handleAuthError = (err: any) => {
+    if (err?.isAuthError || err?.message?.includes('Session expired')) {
+      setError('Session expired. Redirecting to login...')
+      setTimeout(() => navigate('/login'), 1500)
+      return true
+    }
+    return false
+  }
 
   useEffect(() => {
     fetchUsers()
@@ -26,9 +38,11 @@ const UserManagement: React.FC = () => {
     try {
       const response = await userService.getAllUsers()
       setUsers(response.data || [])
-    } catch (err) {
-      setError('Failed to fetch users')
-      console.error('Error fetching users:', err)
+    } catch (err: any) {
+      if (!handleAuthError(err)) {
+        setError('Failed to fetch users')
+        console.error('Error fetching users:', err)
+      }
     } finally {
       setLoading(false)
     }
@@ -45,14 +59,28 @@ const UserManagement: React.FC = () => {
 
       // Switch to view tab and refresh users list
       setActiveTab('view')
-      await fetchUsers()
+
+      // Try to fetch users, but don't fail if auth expired
+      try {
+        await fetchUsers()
+      } catch (fetchErr: any) {
+        // User was created successfully, but we can't refresh the list
+        // This is okay - user will see it on next load
+        console.warn('Could not refresh user list:', fetchErr)
+        if (handleAuthError(fetchErr)) {
+          return response
+        }
+      }
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
 
       return response
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to create user'
+      if (handleAuthError(err)) {
+        throw err
+      }
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to create user'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileVideo, Megaphone, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, FileVideo, Megaphone, Video } from 'lucide-react';
 
 const AdminBottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -56,25 +56,25 @@ const AdminBottomNav: React.FC = () => {
             </span>
           </button>
 
-          {/* User Tree */}
+          {/* Meetings */}
           <button
-            onClick={() => navigate('/admin/tree')}
+            onClick={() => navigate('/admin/meetings')}
             className="flex flex-col items-center justify-center p-2 transition-transform active:scale-90"
           >
-            <TrendingUp
+            <Video
               className={`w-6 h-6 ${
-                isActive('/admin/tree')
+                isActive('/admin/meetings')
                   ? 'text-accent-bitcoin dark:text-white fill-accent-bitcoin dark:fill-white'
                   : 'text-dark-600 dark:text-white'
               }`}
               strokeWidth={2}
             />
             <span className={`text-xs mt-0.5 ${
-              isActive('/admin/tree')
+              isActive('/admin/meetings')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
             }`}>
-              Tree
+              Meetings
             </span>
           </button>
 

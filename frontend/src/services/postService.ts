@@ -7,7 +7,7 @@ export const postService = {
   getPost: (id: string) => api.get<Post>(`/api/posts/${id}`),
 
   createPost: (data: FormData) =>
-    api.post<Post>('/api/admin/posts', data, {
+    api.post<Post>('/upload', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
 
@@ -15,8 +15,8 @@ export const postService = {
     api.put<Post>(`/api/admin/posts/${id}`, data),
 
   deletePost: (id: string) =>
-    api.delete(`/api/admin/posts/${id}`),
+    api.delete(`/api/posts/${id}`),
 
   interactWithPost: (id: string, type: 'like' | 'share' | 'view') =>
-    api.post(`/api/posts/${id}/interact`, { interaction_type: type }),
+    api.post(`/api/feed/${id}/interact`, { type }),
 }

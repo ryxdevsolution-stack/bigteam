@@ -14,6 +14,7 @@ import {
   DollarSign
 } from 'lucide-react'
 import { CreateUserPayload, userService } from '../../../services/userService'
+import api from '../../../services/api'
 
 interface CreateUserFormProps {
   onSubmit: (data: CreateUserPayload) => Promise<any>
@@ -34,7 +35,6 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     username: '',
     password: '',
     role: 'customer',
-    referred_by: '',
     amount: 1000
   })
 
@@ -52,32 +52,28 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
   useEffect(() => {
     const fetchChainPosition = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+        // Use the api client with auth to get accurate data
+        const response = await api.get('/api/mlm/chain-with-commissions')
+        const data = response.data
+        const chain = data.chain || []
 
-        // Use the chain-with-commissions API to get accurate data
-        const response = await fetch(`${apiUrl}/api/mlm/chain-with-commissions`)
-        if (response.ok) {
-          const data = await response.json()
-          const chain = data.chain || []
+        // New user will be at next position
+        const newPosition = chain.length + 1
+        setChainPosition(newPosition)
 
-          // New user will be at next position
-          const newPosition = chain.length + 1
-          setChainPosition(newPosition)
+        // Find the FIRST active user with < 2 commissions (correct team logic)
+        // This is who will actually receive the commission
+        const receiver = chain.find((user: any) =>
+          user.is_active && user.commission_received_count < 2
+        )
 
-          // Find the FIRST active user with < 2 commissions (correct MLM logic)
-          // This is who will actually receive the commission
-          const receiver = chain.find((user: any) =>
-            user.is_active && user.commission_received_count < 2
-          )
-
-          if (receiver) {
-            setCommissionReceivers([{
-              position: receiver.position,
-              username: receiver.username
-            }])
-          } else {
-            setCommissionReceivers([])
-          }
+        if (receiver) {
+          setCommissionReceivers([{
+            position: receiver.position,
+            username: receiver.username
+          }])
+        } else {
+          setCommissionReceivers([])
         }
       } catch (error) {
         console.error('Failed to fetch chain position:', error)
@@ -303,7 +299,6 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
         username: '',
         password: '',
         role: 'customer',
-        referred_by: '',
         amount: 1000
       })
       setConfirmPassword('')
@@ -570,25 +565,6 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
             )}
           </div>
 
-          {/* Referred By */}
-          <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-              Referred By (Optional)
-            </label>
-            <div className="relative">
-              <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
-              <input
-                type="text"
-                name="referred_by"
-                value={formData.referred_by}
-                onChange={handleInputChange}
-                placeholder="Referrer username or ID"
-                className="w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
-                disabled={loading}
-              />
-            </div>
-          </div>
-
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
@@ -614,7 +590,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
           </div>
         </div>
 
-        {/* MLM Chain Position Info */}
+        {/* Team Chain Position Info */}
         {chainPosition !== null && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -627,10 +603,10 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
               </div>
               <div className="flex-1">
                 <h4 className="font-semibold text-dark-900 dark:text-white mb-1">
-                  MLM Chain Position
+                  Team Chain Position
                 </h4>
                 <p className="text-sm text-dark-600 dark:text-dark-400 mb-3">
-                  This user will be added at position <span className="font-semibold text-accent-bitcoin">#{chainPosition}</span> in the MLM chain
+                  This user will be added at position <span className="font-semibold text-accent-bitcoin">#{chainPosition}</span> in the team chain
                 </p>
 
                 {commissionReceivers.length > 0 ? (
@@ -653,7 +629,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                     <p className="text-xs text-blue-700 dark:text-blue-300">
-                      No active MLM users yet to receive commission.
+                      No active team users yet to receive commission.
                     </p>
                   </div>
                 )}
@@ -681,7 +657,6 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 username: '',
                 password: '',
                 role: 'customer',
-                referred_by: '',
                 amount: 1000
               })
               setConfirmPassword('')

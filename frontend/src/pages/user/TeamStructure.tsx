@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, TrendingUp, Award, ArrowDown, ArrowRight, CheckCircle, XCircle, Crown, Zap } from 'lucide-react';
+import { Users, TrendingUp, Award, ArrowDown, CheckCircle, XCircle, Crown, Zap } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 
-const MLMTree: React.FC = () => {
-  const { mlmTree: treeData, mlmTreeLoading: loading, fetchMlmTree } = useData();
+const TeamStructure: React.FC = () => {
+  const { teamTree: treeData, teamTreeLoading: loading, fetchTeamTree } = useData();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     if (user.id) {
-      fetchMlmTree(user.id);
+      fetchTeamTree(user.id);
     }
-  }, [user.id, fetchMlmTree]);
+  }, [user.id, fetchTeamTree]);
 
   if (loading) {
     return (
@@ -69,7 +69,7 @@ const MLMTree: React.FC = () => {
         {userData?.total_earnings !== undefined && (
           <div className="flex items-center justify-between text-xs sm:text-sm pt-1.5 sm:pt-2 border-t border-white/20">
             <span className="opacity-90 text-[0.625rem] sm:text-xs">Earnings</span>
-            <span className="font-bold text-xs sm:text-sm">₹{userData.total_earnings?.toFixed(2) || '0.00'}</span>
+            <span className="font-bold text-xs sm:text-sm">{userData.total_earnings?.toFixed(2) || '0.00'}</span>
           </div>
         )}
       </div>
@@ -114,7 +114,6 @@ const MLMTree: React.FC = () => {
               />
             )}
           </div>
-          <ArrowRight className="w-6 h-6 text-accent-bitcoin -ml-1" />
         </div>
       )}
     </div>
@@ -128,7 +127,7 @@ const MLMTree: React.FC = () => {
         className="bg-white dark:bg-dark-800 rounded-2xl p-4 sm:p-6 shadow-lg"
       >
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-900 dark:text-white mb-2">My Team Structure</h1>
-        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300">Visual representation of your MLM network</p>
+        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300">Visual representation of your team network</p>
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -138,8 +137,8 @@ const MLMTree: React.FC = () => {
           className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg text-white"
         >
           <Users className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 opacity-80" />
-          <h3 className="text-xs sm:text-sm font-medium opacity-90 mb-1">Total Referrals</h3>
-          <p className="text-2xl sm:text-3xl font-bold">{treeData?.total_referrals || 0}</p>
+          <h3 className="text-xs sm:text-sm font-medium opacity-90 mb-1">Total Team Members</h3>
+          <p className="text-2xl sm:text-3xl font-bold">{treeData?.total_team_members || 0}</p>
         </motion.div>
 
         <motion.div
@@ -149,8 +148,8 @@ const MLMTree: React.FC = () => {
           className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg text-white"
         >
           <Award className="w-8 h-8 sm:w-10 sm:h-10 mb-2 sm:mb-3 opacity-80" />
-          <h3 className="text-xs sm:text-sm font-medium opacity-90 mb-1">Active Referrals</h3>
-          <p className="text-2xl sm:text-3xl font-bold">{treeData?.active_referrals || 0}</p>
+          <h3 className="text-xs sm:text-sm font-medium opacity-90 mb-1">Active Members</h3>
+          <p className="text-2xl sm:text-3xl font-bold">{treeData?.active_team_members || 0}</p>
         </motion.div>
 
         <motion.div
@@ -178,13 +177,13 @@ const MLMTree: React.FC = () => {
 
         <div className="flex flex-col items-center space-y-0 overflow-x-auto max-w-full px-2 sm:px-0">
           <div className="flex flex-col items-center space-y-0 mx-auto">
-            {/* Upline (Sponsor) */}
+            {/* Upline (Inviter) */}
             {treeData?.upline && (
               <>
                 <UserNode
                   userData={treeData.upline}
-                  label="Your Sponsor (Upline)"
-                  isActive={treeData.upline.is_mlm_active}
+                  label="Your Inviter (Upline)"
+                  isActive={treeData.upline.is_active_member}
                 />
                 <ConnectionLine direction="down" animated />
               </>
@@ -194,28 +193,28 @@ const MLMTree: React.FC = () => {
             <UserNode
               userData={treeData?.user}
               label="You"
-              isActive={treeData?.user.is_mlm_active}
+              isActive={treeData?.user?.is_active_member}
               isYou={true}
             />
 
-            {/* Downline (Your Referrals) */}
+            {/* Downline (Your Team Members) */}
             {treeData?.downline && treeData.downline.length > 0 && (
               <>
                 <ConnectionLine direction="down" animated />
 
                 <div className="flex flex-wrap gap-3 sm:gap-4 md:gap-6 justify-center items-start max-w-full sm:max-w-2xl md:max-w-6xl">
-                  {treeData.downline.map((referral, index) => (
+                  {treeData.downline.map((member, index) => (
                     <motion.div
-                      key={referral.id}
+                      key={member.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 + index * 0.1 }}
                       className="w-full sm:w-auto"
                     >
                       <UserNode
-                        userData={referral}
-                        label={`Referral ${index + 1}`}
-                        isActive={referral.is_mlm_active}
+                        userData={member}
+                        label={`Team Member ${index + 1}`}
+                        isActive={member.is_active_member}
                       />
                     </motion.div>
                   ))}
@@ -238,7 +237,7 @@ const MLMTree: React.FC = () => {
                     No Team Members Yet
                   </p>
                   <p className="text-dark-500 dark:text-dark-400 text-xs sm:text-sm">
-                    Share your referral code to build your team and start earning commissions
+                    Invite others to build your team and start earning commissions
                   </p>
                 </motion.div>
               </>
@@ -279,10 +278,10 @@ const MLMTree: React.FC = () => {
           <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-white/10 backdrop-blur rounded-lg sm:rounded-xl">
             <p className="text-xs sm:text-sm opacity-90 mb-1.5 sm:mb-2 font-semibold">How It Works:</p>
             <ul className="text-[0.625rem] sm:text-xs md:text-sm space-y-0.5 sm:space-y-1 opacity-90">
-              <li>• When you're <strong>active</strong>, you receive commissions from new users joining after you</li>
-              <li>• After receiving <strong>2 commissions</strong>, you become inactive</li>
-              <li>• You can <strong>reactivate</strong> anytime by making another purchase</li>
-              <li>• Reactivation places you at the <strong>end of the chain</strong> with a new position</li>
+              <li>When you're <strong>active</strong>, you receive commissions from new users joining after you</li>
+              <li>After receiving <strong>2 commissions</strong>, you become inactive</li>
+              <li>You can <strong>reactivate</strong> anytime by making another purchase</li>
+              <li>Reactivation places you at the <strong>end of the chain</strong> with a new position</li>
             </ul>
           </div>
         </motion.div>
@@ -330,4 +329,4 @@ const MLMTree: React.FC = () => {
   );
 };
 
-export default MLMTree;
+export default TeamStructure;

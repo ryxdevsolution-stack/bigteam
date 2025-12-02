@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -6,7 +6,6 @@ import {
   Award,
   Clock,
   CheckCircle,
-  Copy,
   Download
 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
@@ -20,7 +19,6 @@ const Earnings: React.FC = () => {
     commissionsLoading,
     fetchCommissions
   } = useData();
-  const [copied, setCopied] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const loading = dashboardStatsLoading || commissionsLoading;
 
@@ -30,14 +28,6 @@ const Earnings: React.FC = () => {
       fetchCommissions(user.id);
     }
   }, [user.id, fetchDashboardStats, fetchCommissions]);
-
-  const copyReferralCode = () => {
-    if (stats?.referral_code) {
-      navigator.clipboard.writeText(stats.referral_code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   if (loading) {
     return (
@@ -50,7 +40,7 @@ const Earnings: React.FC = () => {
   const earningCards = [
     {
       title: 'Total Earnings',
-      value: `₹${stats?.total_earnings?.toFixed(2) || '0.00'}`,
+      value: `${stats?.total_earnings?.toFixed(2) || '0.00'}`,
       icon: DollarSign,
       color: 'from-green-500 to-emerald-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
@@ -58,7 +48,7 @@ const Earnings: React.FC = () => {
     },
     {
       title: 'Available Balance',
-      value: `₹${stats?.available_balance?.toFixed(2) || '0.00'}`,
+      value: `${stats?.available_balance?.toFixed(2) || '0.00'}`,
       icon: TrendingUp,
       color: 'from-blue-500 to-cyan-600',
       bgColor: 'bg-blue-50 dark:bg-blue-900/20',
@@ -66,7 +56,7 @@ const Earnings: React.FC = () => {
     },
     {
       title: 'Pending Balance',
-      value: `₹${stats?.pending_balance?.toFixed(2) || '0.00'}`,
+      value: `${stats?.pending_balance?.toFixed(2) || '0.00'}`,
       icon: Clock,
       color: 'from-orange-500 to-red-600',
       bgColor: 'bg-orange-50 dark:bg-orange-900/20',
@@ -123,41 +113,6 @@ const Earnings: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-white dark:bg-dark-800 rounded-2xl p-6 shadow-lg"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-dark-900 dark:text-white">
-            Referral Code
-          </h2>
-          <div className="flex gap-2">
-            <button
-              onClick={copyReferralCode}
-              disabled={!stats?.referral_code}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                copied
-                  ? 'bg-green-500 text-white'
-                  : 'bg-accent-bitcoin hover:bg-accent-orange text-white'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied!' : 'Copy Code'}
-            </button>
-          </div>
-        </div>
-        <div className="bg-light-100 dark:bg-dark-700 rounded-xl p-6">
-          <p className="text-3xl font-mono font-bold text-accent-bitcoin dark:text-accent-gold text-center">
-            {stats?.referral_code || 'Not activated'}
-          </p>
-          <p className="text-sm text-dark-600 dark:text-dark-300 text-center mt-2">
-            Share this code to earn commissions when others join
-          </p>
-        </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
         className="bg-white dark:bg-dark-800 rounded-2xl p-6 shadow-lg"
       >
@@ -198,7 +153,7 @@ const Earnings: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    +₹{commission.amount.toFixed(2)}
+                    +{commission.amount.toFixed(2)}
                   </p>
                   <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
                     commission.status === 'completed'
@@ -217,13 +172,13 @@ const Earnings: React.FC = () => {
             <DollarSign className="w-16 h-16 text-dark-300 dark:text-dark-600 mx-auto mb-4" />
             <p className="text-dark-600 dark:text-dark-300 text-lg">No commissions yet</p>
             <p className="text-dark-500 dark:text-dark-400 text-sm mt-2">
-              Share your referral code to start earning
+              Build your team to start earning commissions
             </p>
           </div>
         )}
       </motion.div>
 
-      {!stats?.is_mlm_active && (
+      {!stats?.is_active_member && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -237,7 +192,7 @@ const Earnings: React.FC = () => {
             <div className="flex-1">
               <h3 className="text-xl font-bold mb-2">Activate Your Account</h3>
               <p className="text-white/90 mb-4">
-                Purchase an activation package to start earning commissions from your referrals
+                Purchase an activation package to start earning commissions from your team
               </p>
               <button className="px-6 py-3 bg-white text-orange-600 rounded-lg font-semibold hover:bg-white/90 transition-all">
                 Activate Now

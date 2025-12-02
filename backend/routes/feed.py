@@ -1,23 +1,35 @@
+"""
+Feed Routes - Content feed and interaction endpoints
+Provides mixed feed of posts and advertisements with interaction tracking
+"""
 from flask import Blueprint, request, jsonify
 from utils.db import get_db_connection, return_db_connection
+from utils.auth import token_required, get_current_user_id
+from utils.validators import validate_pagination, validate_interaction_type
+from utils.rate_limiter import limiter
 from datetime import datetime
 
 feed_bp = Blueprint("feed", __name__)
 
+
 @feed_bp.route("/api/feed", methods=["GET"])
+@token_required
 def get_feed():
-    """Get mixed feed of posts and advertisements"""
+    """Get mixed feed of posts and advertisements with pagination"""
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Get page and limit from query params
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 10))
+        # Validate pagination parameters
+        page, limit = validate_pagination(
+            request.args.get('page', 1),
+            request.args.get('limit', 10),
+            max_limit=50
+        )
         offset = (page - 1) * limit
 
-        # Get all posts (published or all if no published flag)
+        # Get published posts
         cur.execute("""
             SELECT
                 id, title, content, media_type, media_url,
@@ -25,49 +37,28 @@ def get_feed():
                 likes_count, shares_count, views_count,
                 'post' as content_type
             FROM posts
-            WHERE is_published = true OR is_published IS NULL
+            WHERE is_published = true
             ORDER BY created_at DESC
         """)
         posts = cur.fetchall()
 
-        # First, check all ads without date filtering for debugging
-        try:
-            cur.execute("""
-                SELECT id, title, is_active, start_date, end_date
-                FROM advertisements
-            """)
-            all_ads_debug = cur.fetchall()
-            print(f"DEBUG: Total ads in database: {len(all_ads_debug)}")
-            for ad in all_ads_debug:
-                print(f"  Ad: {ad[1]}, Active: {ad[2]}, Start: {ad[3]}, End: {ad[4]}")
-        except Exception as e:
-            print(f"DEBUG ERROR checking all ads: {e}")
-
-        # Get all active advertisements (simplified query - only check is_active)
-        try:
-            cur.execute("""
-                SELECT
-                    id, title, '' as content, media_type, media_url,
-                    media_url as thumbnail_url, NULL as created_by, created_at,
-                    0 as likes_count, 0 as shares_count, 0 as views_count,
-                    'ad' as content_type, ad_type
-                FROM advertisements
-                WHERE is_active = true OR is_active IS NULL
-                ORDER BY created_at DESC
-            """)
-            ads = cur.fetchall()
-        except Exception as e:
-            print(f"DEBUG ERROR fetching ads: {e}")
-            ads = []
-
-        # Debug: Print ad query results
-        print(f"DEBUG: Found {len(ads)} active advertisements (ignoring dates)")
-        for ad in ads[:3]:  # Print first 3 ads for debugging
-            print(f"  Ad: {ad[1]} - Type: {ad[3]} - Active check passed")
+        # Get active advertisements (using status field, not is_active)
+        cur.execute("""
+            SELECT
+                id, title, '' as content, media_type, media_url,
+                media_url as thumbnail_url, NULL as created_by, created_at,
+                0 as likes_count, 0 as shares_count, 0 as views_count,
+                'ad' as content_type, ad_type
+            FROM advertisements
+            WHERE status = 'active'
+            AND (start_date IS NULL OR start_date <= CURRENT_DATE)
+            AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+            ORDER BY created_at DESC
+        """)
+        ads = cur.fetchall()
 
         # Format posts
         formatted_content = []
-
         for post in posts:
             formatted_content.append({
                 "id": str(post[0]),
@@ -78,15 +69,14 @@ def get_feed():
                 "thumbnail_url": post[5] or post[4],
                 "created_by": str(post[6]) if post[6] else "BigTeam",
                 "created_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
-                "likes_count": post[8] if post[8] is not None else 0,
-                "shares_count": post[9] if post[9] is not None else 0,
-                "views_count": post[10] if post[10] is not None else 0,
+                "likes_count": post[8] or 0,
+                "shares_count": post[9] or 0,
+                "views_count": post[10] or 0,
                 "content_type": post[11]
             })
 
         # Format ads
         formatted_ads = []
-        print(f"DEBUG: Processing {len(ads)} ads for formatting")
         for ad in ads:
             formatted_ads.append({
                 "id": str(ad[0]),
@@ -107,75 +97,110 @@ def get_feed():
         # Mix ads into posts (1 ad every 5 posts)
         mixed_feed = []
         ad_index = 0
-        print(f"DEBUG: Mixing {len(formatted_ads)} ads into {len(formatted_content)} posts")
+        ad_interval = 5
 
         for i, post in enumerate(formatted_content):
             mixed_feed.append(post)
 
-            # Insert ad every 5 posts if ads available
-            if (i + 1) % 5 == 0 and ad_index < len(formatted_ads):
-                print(f"DEBUG: Inserting ad at position {len(mixed_feed)} after post {i+1}")
+            # Insert ad every N posts if ads available
+            if (i + 1) % ad_interval == 0 and ad_index < len(formatted_ads):
                 mixed_feed.append(formatted_ads[ad_index])
                 ad_index += 1
 
-        # Add remaining ads at the end if any
+        # Add remaining ads at the end
         while ad_index < len(formatted_ads):
             mixed_feed.append(formatted_ads[ad_index])
             ad_index += 1
 
-        # Paginate the mixed feed
-        start = offset
-        end = offset + limit
-        paginated_feed = mixed_feed[start:end]
+        # Apply pagination to mixed feed
+        total_items = len(mixed_feed)
+        paginated_feed = mixed_feed[offset:offset + limit]
 
-        # Debug: Check content types in paginated feed
-        content_types = [item['content_type'] for item in paginated_feed]
-        print(f"DEBUG: Page {page} content types: {content_types}")
-        print(f"DEBUG: Returning {len(paginated_feed)} items (offset: {start}, limit: {limit})")
-
-        # Update view counts for returned content
-        for content in paginated_feed:
-            if content['content_type'] == 'post':
-                try:
-                    cur.execute("""
-                        UPDATE posts
-                        SET views_count = views_count + 1
-                        WHERE id = %s
-                    """, (content['id'],))
-                    content['views_count'] += 1
-                except:
-                    pass  # Ignore view count update errors
-
-        conn.commit()
+        cur.close()
 
         return jsonify({
             "feed": paginated_feed,
             "page": page,
             "limit": limit,
-            "total": len(mixed_feed),
-            "has_more": end < len(mixed_feed)
+            "total": total_items,
+            "has_more": (offset + limit) < total_items
         }), 200
 
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch feed: {str(e)}"}), 500
+        return jsonify({"error": "Failed to fetch feed"}), 500
     finally:
         if conn:
             if 'cur' in locals():
                 cur.close()
             return_db_connection(conn)
 
+
 @feed_bp.route("/api/feed/<content_id>/interact", methods=["POST"])
+@limiter.limit("60 per minute")
+@token_required
 def interact_with_content(content_id):
-    """Record user interaction with content"""
+    """
+    Record user interaction with content (like, share, view)
+    Prevents duplicate interactions from same user
+    """
     conn = None
     try:
-        interaction_type = request.json.get('type')  # 'like', 'share'
+        data = request.json or {}
+        interaction_type = data.get('type', '').lower()
 
-        if interaction_type not in ['like', 'share']:
-            return jsonify({"error": "Invalid interaction type"}), 400
+        # Validate interaction type
+        is_valid, error = validate_interaction_type(interaction_type)
+        if not is_valid:
+            return jsonify({"error": error}), 400
+
+        user_id = get_current_user_id()
+        if not user_id:
+            return jsonify({"error": "Authentication required"}), 401
 
         conn = get_db_connection()
         cur = conn.cursor()
+
+        # Check if post exists
+        cur.execute("SELECT id FROM posts WHERE id = %s", (content_id,))
+        if not cur.fetchone():
+            return jsonify({"error": "Content not found"}), 404
+
+        # Check for existing interaction (prevent duplicates for likes)
+        if interaction_type == 'like':
+            cur.execute("""
+                SELECT id FROM user_interactions
+                WHERE user_id = %s AND content_id = %s AND interaction_type = 'like'
+            """, (user_id, content_id))
+
+            if cur.fetchone():
+                # User already liked - remove the like (toggle behavior)
+                cur.execute("""
+                    DELETE FROM user_interactions
+                    WHERE user_id = %s AND content_id = %s AND interaction_type = 'like'
+                """, (user_id, content_id))
+
+                cur.execute("""
+                    UPDATE posts
+                    SET likes_count = GREATEST(likes_count - 1, 0)
+                    WHERE id = %s
+                    RETURNING likes_count
+                """, (content_id,))
+
+                new_count = cur.fetchone()[0]
+                conn.commit()
+
+                return jsonify({
+                    "success": True,
+                    "action": "unliked",
+                    "new_count": new_count
+                }), 200
+
+        # Record interaction
+        cur.execute("""
+            INSERT INTO user_interactions (user_id, content_id, interaction_type)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, content_id, interaction_type) DO NOTHING
+        """, (user_id, content_id, interaction_type))
 
         # Update the appropriate counter
         if interaction_type == 'like':
@@ -185,31 +210,73 @@ def interact_with_content(content_id):
                 WHERE id = %s
                 RETURNING likes_count
             """, (content_id,))
-        else:  # share
+            new_count = cur.fetchone()[0]
+        elif interaction_type == 'share':
             cur.execute("""
                 UPDATE posts
                 SET shares_count = shares_count + 1
                 WHERE id = %s
                 RETURNING shares_count
             """, (content_id,))
+            new_count = cur.fetchone()[0]
+        else:  # view
+            cur.execute("""
+                UPDATE posts
+                SET views_count = views_count + 1
+                WHERE id = %s
+                RETURNING views_count
+            """, (content_id,))
+            new_count = cur.fetchone()[0]
 
-        result = cur.fetchone()
         conn.commit()
 
-        if result:
-            return jsonify({
-                "success": True,
-                "new_count": result[0]
-            }), 200
-        else:
-            return jsonify({"error": "Content not found"}), 404
+        return jsonify({
+            "success": True,
+            "action": interaction_type,
+            "new_count": new_count
+        }), 200
 
     except Exception as e:
         if conn:
             conn.rollback()
-        return jsonify({"error": f"Failed to record interaction: {str(e)}"}), 500
+        return jsonify({"error": "Failed to record interaction"}), 500
     finally:
         if conn:
             if 'cur' in locals():
                 cur.close()
+            return_db_connection(conn)
+
+
+@feed_bp.route("/api/feed/<content_id>/interactions", methods=["GET"])
+@token_required
+def get_user_interactions(content_id):
+    """Get current user's interactions with a piece of content"""
+    conn = None
+    try:
+        user_id = get_current_user_id()
+        if not user_id:
+            return jsonify({"error": "Authentication required"}), 401
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT interaction_type FROM user_interactions
+            WHERE user_id = %s AND content_id = %s
+        """, (user_id, content_id))
+
+        interactions = [row[0] for row in cur.fetchall()]
+        cur.close()
+
+        return jsonify({
+            "success": True,
+            "interactions": interactions,
+            "has_liked": 'like' in interactions,
+            "has_shared": 'share' in interactions
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": "Failed to fetch interactions"}), 500
+    finally:
+        if conn:
             return_db_connection(conn)

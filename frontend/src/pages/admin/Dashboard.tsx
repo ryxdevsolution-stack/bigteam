@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import MetricCard from '../../components/dashboard/Cards/MetricCard';
 import ChartCard from '../../components/dashboard/Cards/ChartCard';
 import AreaChart from '../../components/dashboard/Charts/AreaChart';
@@ -17,82 +17,40 @@ import {
   Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
-import api from '../../services/api';
+import { useData } from '../../contexts/DataContext';
 
 const Dashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [areaChartData, setAreaChartData] = useState<any[]>([]);
-  const [barChartData, setBarChartData] = useState<any[]>([]);
-  const [pieChartData, setPieChartData] = useState<any[]>([]);
-  const [engagementBarData, setEngagementBarData] = useState<any[]>([]);
-  const [tableData, setTableData] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState({
-    totalUsers: 0,
-    totalPosts: 0,
-    engagementRate: 0,
-    adRevenue: 0,
-    totalViews: 0,
-    totalLikes: 0,
-    totalShares: 0,
-    totalComments: 0
-  });
+  // Use centralized data context instead of direct API calls
+  const {
+    posts,
+    fetchPosts,
+    fetchUsers,
+    adminMetrics,
+    adminMetricsLoading
+  } = useData();
 
+  // Fetch data on mount - DataContext handles caching and deduplication
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchPosts();
+    fetchUsers();
+  }, [fetchPosts, fetchUsers]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
+  // Memoized chart data derived from posts
+  const barChartData = useMemo(() => {
+    if (posts.length === 0) return [];
+    return [
+      { name: 'Videos', value: adminMetrics.videoCount, color: '#f97316' },
+      { name: 'Images', value: adminMetrics.imageCount, color: '#f7931a' }
+    ];
+  }, [posts.length, adminMetrics.videoCount, adminMetrics.imageCount]);
 
-      // Fetch posts for content metrics
-      const postsResponse = await api.get('/api/posts');
-      const posts = postsResponse.data || [];
+  // Empty data for charts that need additional API endpoints
+  const areaChartData: any[] = [];
+  const pieChartData: any[] = [];
+  const engagementBarData: any[] = [];
+  const tableData: any[] = [];
 
-      // Calculate metrics from real data
-      const videoCount = posts.filter((p: any) => p.media_type === 'video').length;
-      const imageCount = posts.filter((p: any) => p.media_type === 'image').length;
-
-      // Set real data or empty arrays
-      setBarChartData(
-        posts.length > 0
-          ? [
-              { name: 'Videos', value: videoCount, color: '#f97316' },
-              { name: 'Images', value: imageCount, color: '#f7931a' }
-            ]
-          : []
-      );
-
-      // Empty data for charts that need API endpoints
-      setAreaChartData([]);
-      setPieChartData([]);
-      setEngagementBarData([]);
-      setTableData([]);
-
-      // Set metrics from real data
-      setMetrics({
-        totalUsers: 0, // Need users API endpoint
-        totalPosts: posts.length,
-        engagementRate: 0,
-        adRevenue: 0,
-        totalViews: posts.reduce((acc: number, p: any) => acc + (p.views_count || 0), 0),
-        totalLikes: posts.reduce((acc: number, p: any) => acc + (p.likes_count || 0), 0),
-        totalShares: posts.reduce((acc: number, p: any) => acc + (p.shares_count || 0), 0),
-        totalComments: 0
-      });
-
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      // Set all to empty on error
-      setBarChartData([]);
-      setAreaChartData([]);
-      setPieChartData([]);
-      setEngagementBarData([]);
-      setTableData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = adminMetricsLoading;
 
   const tableColumns = [
     {
@@ -117,7 +75,7 @@ const Dashboard: React.FC = () => {
       label: 'Revenue',
       render: (value: number) => (
         <span className="text-accent-bitcoin dark:text-accent-gold">
-          ${value ? value.toFixed(2) : '0.00'}
+          🪙{value ? value.toFixed(2) : '0.00'}
         </span>
       )
     },
@@ -159,7 +117,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <MetricCard
           title="Total Users"
-          value={metrics.totalUsers}
+          value={adminMetrics.totalUsers}
           change={0}
           trend="up"
           icon={<Users className="w-5 h-5 text-accent-bitcoin" />}
@@ -168,7 +126,7 @@ const Dashboard: React.FC = () => {
         />
         <MetricCard
           title="Total Posts"
-          value={metrics.totalPosts}
+          value={adminMetrics.totalPosts}
           change={0}
           trend="up"
           icon={<FileVideo className="w-5 h-5 text-accent-orange" />}
@@ -177,7 +135,7 @@ const Dashboard: React.FC = () => {
         />
         <MetricCard
           title="Engagement Rate"
-          value={metrics.engagementRate}
+          value={adminMetrics.engagementRate}
           suffix="%"
           change={0}
           trend="up"
@@ -187,8 +145,8 @@ const Dashboard: React.FC = () => {
         />
         <MetricCard
           title="Ad Revenue"
-          value={metrics.adRevenue}
-          prefix="$"
+          value={adminMetrics.adRevenue}
+          prefix="🪙"
           change={0}
           trend="up"
           icon={<DollarSign className="w-5 h-5 text-accent-amber" />}
@@ -291,7 +249,7 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Views</p>
               <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
-                {metrics.totalViews > 0 ? metrics.totalViews.toLocaleString() : '0'}
+                {adminMetrics.totalViews > 0 ? adminMetrics.totalViews.toLocaleString() : '0'}
               </p>
             </div>
           </div>
@@ -304,7 +262,7 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Likes</p>
               <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
-                {metrics.totalLikes > 0 ? metrics.totalLikes.toLocaleString() : '0'}
+                {adminMetrics.totalLikes > 0 ? adminMetrics.totalLikes.toLocaleString() : '0'}
               </p>
             </div>
           </div>
@@ -317,7 +275,7 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Total Shares</p>
               <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
-                {metrics.totalShares > 0 ? metrics.totalShares.toLocaleString() : '0'}
+                {adminMetrics.totalShares > 0 ? adminMetrics.totalShares.toLocaleString() : '0'}
               </p>
             </div>
           </div>
@@ -330,7 +288,7 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs text-dark-600 dark:text-dark-400">Comments</p>
               <p className="text-lg sm:text-xl font-bold text-dark-900 dark:text-white">
-                {metrics.totalComments > 0 ? metrics.totalComments.toLocaleString() : '0'}
+                {adminMetrics.totalComments > 0 ? adminMetrics.totalComments.toLocaleString() : '0'}
               </p>
             </div>
           </div>

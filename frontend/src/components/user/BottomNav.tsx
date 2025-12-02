@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Network, DollarSign, User } from 'lucide-react';
+import { Home, Video, DollarSign, User } from 'lucide-react';
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -34,25 +34,25 @@ const BottomNav: React.FC = () => {
             </span>
           </button>
 
-          {/* Tree */}
+          {/* Videos */}
           <button
-            onClick={() => navigate('/user/tree-profile')}
+            onClick={() => navigate('/user/videos')}
             className="flex flex-col items-center justify-center p-2 transition-transform active:scale-90"
           >
-            <Network
+            <Video
               className={`w-6 h-6 ${
-                isActive('/user/tree-profile')
+                isActive('/user/videos')
                   ? 'text-accent-bitcoin dark:text-white fill-accent-bitcoin dark:fill-white'
                   : 'text-dark-600 dark:text-white'
               }`}
               strokeWidth={2}
             />
             <span className={`text-xs mt-0.5 ${
-              isActive('/user/tree-profile')
+              isActive('/user/videos')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
             }`}>
-              Tree
+              Videos
             </span>
           </button>
 

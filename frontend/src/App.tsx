@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DataProvider } from './contexts/DataContext'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 
 // Eager load only critical components
 import LoginPage from './pages/LoginPage'
@@ -13,11 +14,12 @@ const ContentManagement = lazy(() => import('./pages/admin/ContentManagement'))
 const UserTreeView = lazy(() => import('./pages/admin/UserTreeView'))
 const CustomerOverview = lazy(() => import('./pages/admin/CustomerOverview'))
 const AdManagement = lazy(() => import('./components/dashboard/AdManagement'))
+const MeetingManagement = lazy(() => import('./pages/admin/MeetingManagement'))
 
 // Lazy load user components
 const UserLayout = lazy(() => import('./components/user/UserLayout'))
 const UserProfile = lazy(() => import('./pages/user/Profile'))
-const MLMTree = lazy(() => import('./pages/user/MLMTree'))
+const TeamStructure = lazy(() => import('./pages/user/TeamStructure'))
 const Earnings = lazy(() => import('./pages/user/Earnings'))
 const Overview = lazy(() => import('./pages/user/Overview'))
 const Videos = lazy(() => import('./pages/user/Videos'))
@@ -44,23 +46,33 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
 
-            <Route path="/admin" element={<DashboardLayout />}>
+            {/* Admin routes - protected, requires admin role */}
+            <Route path="/admin" element={
+              <ProtectedRoute requiredRole="admin">
+                <DashboardLayout />
+              </ProtectedRoute>
+            }>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="customers" element={<CustomerOverview />} />
               <Route path="content" element={<ContentManagement />} />
               <Route path="ads" element={<AdManagement />} />
+              <Route path="meetings" element={<MeetingManagement />} />
               <Route path="tree" element={<UserTreeView />} />
               <Route index element={<Navigate to="dashboard" />} />
             </Route>
 
-            {/* User routes with sidebar (hidden on mobile, visible on desktop) */}
-            <Route path="/user" element={<UserLayout />}>
+            {/* User routes - protected, requires customer role */}
+            <Route path="/user" element={
+              <ProtectedRoute requiredRole="customer">
+                <UserLayout />
+              </ProtectedRoute>
+            }>
               <Route path="home" element={<Overview />} />
               <Route path="videos" element={<Videos />} />
               <Route path="photos" element={<Photos />} />
               <Route path="meetings" element={<Meetings />} />
               <Route path="tree-profile" element={<TreeProfile />} />
-              <Route path="mlm-tree" element={<MLMTree />} />
+              <Route path="team-structure" element={<TeamStructure />} />
               <Route path="earnings" element={<Earnings />} />
               <Route path="profile" element={<UserProfile />} />
               <Route index element={<Navigate to="home" replace />} />

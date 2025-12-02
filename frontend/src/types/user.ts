@@ -8,10 +8,10 @@ export interface User {
   created_at?: string
   updated_at?: string
   profile_picture?: string
-  sponsored_by?: string
-  is_mlm_active?: boolean
+  invited_by?: string
+  is_active_member?: boolean
   total_earnings?: number
-  referral_code?: string
+  invite_code?: string
   activation_date?: string
   amount?: number
   available_balance?: number

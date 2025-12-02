@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { login } from '../store/slices/authSlice';
 import { AppDispatch } from '../store/store';
+import { tokenUtils } from '../services/api';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -26,6 +27,18 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (tokenUtils.isAuthenticated()) {
+      const user = tokenUtils.getUser();
+      if (user?.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/user/home', { replace: true });
+      }
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -356,7 +369,7 @@ const LoginPage: React.FC = () => {
                   <p className="text-xs text-gray-600 mt-1">Active Members</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500">$2.4M+</p>
+                  <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500">🪙2.4M+</p>
                   <p className="text-xs text-gray-600 mt-1">Total Rewards</p>
                 </div>
               </div>
