@@ -4,8 +4,6 @@ import {
   LayoutDashboard,
   Users,
   FileVideo,
-  Settings,
-  Bell,
   LogOut,
   TrendingUp,
   Sun,
@@ -18,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { tokenUtils, cacheUtils } from '../../../services/api';
 
 interface MenuItem {
   id: string;
@@ -35,7 +34,7 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = tokenUtils.getUser() || {};
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -56,8 +55,6 @@ const Sidebar: React.FC = () => {
     { id: 'meetings', label: 'Meetings', icon: Video, path: '/admin/meetings' },
     { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },
   ];
-
-  const notificationCount = 5; // This would come from your state management or API
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -134,25 +131,17 @@ const Sidebar: React.FC = () => {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center shadow-lg">
                   <User className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" />
                 </div>
-                {notificationCount > 0 && !isCollapsed && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-white text-xs items-center justify-center font-bold">
-                      {notificationCount}
-                    </span>
-                  </span>
-                )}
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs sm:text-sm font-bold text-dark-900 dark:text-white truncate">
-                    {user.name || 'David Owner'}
+                    {user.name || user.username || 'Admin User'}
                   </p>
                   <p className="text-[0.625rem] sm:text-xs text-dark-700 dark:text-dark-300 truncate font-medium">
-                    {user.email || 'admin@bigteam.net'}
+                    {user.email || ''}
                   </p>
                   <p className="text-[0.625rem] sm:text-xs text-accent-bitcoin dark:text-accent-gold font-semibold">
-                    {user.role || 'Administrator'}
+                    {user.role === 'admin' ? 'Administrator' : user.role || 'User'}
                   </p>
                 </div>
               )}
@@ -174,28 +163,12 @@ const Sidebar: React.FC = () => {
                 className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-dark-800 rounded-xl shadow-xl border border-light-300 dark:border-dark-700 overflow-hidden"
               >
                 <Link
-                  to="/admin/notifications"
-                  onClick={() => setIsProfileDropdownOpen(false)}
-                  className="flex items-center justify-between w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Bell className="w-4 h-4 text-dark-700 dark:text-dark-300" />
-                    <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Notifications</span>
-                  </div>
-                  {notificationCount > 0 && (
-                    <span className="flex items-center justify-center px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold">
-                      {notificationCount}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  to="/admin/settings"
+                  to="/admin/profile"
                   onClick={() => setIsProfileDropdownOpen(false)}
                   className="flex items-center space-x-3 w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
                 >
-                  <Settings className="w-4 h-4 text-dark-700 dark:text-dark-300" />
-                  <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Settings</span>
+                  <User className="w-4 h-4 text-dark-700 dark:text-dark-300" />
+                  <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Profile</span>
                 </Link>
 
                 <button
@@ -222,8 +195,10 @@ const Sidebar: React.FC = () => {
                 <div className="border-t border-light-300 dark:border-dark-700">
                   <button
                     onClick={() => {
-                      localStorage.removeItem('authToken');
-                      localStorage.removeItem('user');
+                      // Clear all auth tokens and cached data
+                      tokenUtils.clearAll();
+                      cacheUtils.clearAll();
+                      // Force full page reload to reset all React state
                       window.location.href = '/login';
                     }}
                     className="flex items-center space-x-3 w-full p-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group"

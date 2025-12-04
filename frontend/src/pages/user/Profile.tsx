@@ -1,30 +1,26 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   User,
   Mail,
   Calendar,
   Award,
-  Copy,
   Check,
   TrendingUp,
   Wallet,
-  Users,
   Clock,
   Shield,
-  Edit3,
-  Save,
-  X,
   ChevronRight,
-  Star,
   Target,
-  DollarSign,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
-import api from '../../services/api';
+import authService from '../../services/authService';
 
 const UserProfile: React.FC = () => {
+  const navigate = useNavigate();
   const {
     userProfile: profile,
     userProfileLoading: loading,
@@ -35,11 +31,18 @@ const UserProfile: React.FC = () => {
   } = useData();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const [copied, setCopied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', username: '' });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await authService.logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+      navigate('/login');
+    }
+  };
 
   useEffect(() => {
     if (user.id) {
@@ -47,61 +50,6 @@ const UserProfile: React.FC = () => {
       fetchDashboardStats(user.id);
     }
   }, [user.id, fetchUserProfile, fetchDashboardStats]);
-
-  useEffect(() => {
-    if (profile) {
-      setEditForm({
-        full_name: profile.full_name || '',
-        username: profile.username || ''
-      });
-    }
-  }, [profile]);
-
-  const copyInviteCode = () => {
-    const code = dashboardStats?.invite_code || profile?.invite_code;
-    if (code) {
-      navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    if (!editForm.full_name.trim() || !editForm.username.trim()) {
-      setError('Full name and username are required');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      await api.put('/api/user/profile', {
-        user_id: user.id,
-        full_name: editForm.full_name.trim(),
-        username: editForm.username.trim()
-      });
-
-      // Refresh profile data
-      await fetchUserProfile(user.id, true);
-      setIsEditing(false);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const cancelEdit = () => {
-    setIsEditing(false);
-    setError(null);
-    if (profile) {
-      setEditForm({
-        full_name: profile.full_name || '',
-        username: profile.username || ''
-      });
-    }
-  };
 
   if (loading || dashboardStatsLoading) {
     return (
@@ -115,13 +63,10 @@ const UserProfile: React.FC = () => {
   }
 
   const isActiveMember = dashboardStats?.is_active_member || profile?.is_active_member;
-  const inviteCode = dashboardStats?.invite_code || profile?.invite_code;
   const commissionCount = dashboardStats?.commission_received_count || profile?.commission_received_count || 0;
   const totalEarnings = dashboardStats?.total_earnings || profile?.total_earnings || 0;
   const availableBalance = dashboardStats?.available_balance || profile?.available_balance || 0;
   const pendingBalance = dashboardStats?.pending_balance || profile?.pending_balance || 0;
-  const totalTeamMembers = dashboardStats?.total_team_members || 0;
-  const activeTeamMembers = dashboardStats?.active_team_members || 0;
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
@@ -138,57 +83,10 @@ const UserProfile: React.FC = () => {
         </div>
 
         <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
-              <p className="text-white/80 text-sm sm:text-base mt-1">Manage your account and view your progress</p>
-            </div>
-
-            {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors self-start sm:self-auto"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span>Edit Profile</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={cancelEdit}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cancel</span>
-                </button>
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-white text-accent-bitcoin rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50"
-                >
-                  {saving ? (
-                    <div className="w-4 h-4 border-2 border-accent-bitcoin border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>Save</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
+          <p className="text-white/80 text-sm sm:text-base mt-1">View your account and progress</p>
         </div>
       </motion.div>
-
-      {/* Error Message */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl"
-        >
-          {error}
-        </motion.div>
-      )}
 
       {/* Main Profile Card */}
       <motion.div
@@ -219,56 +117,26 @@ const UserProfile: React.FC = () => {
 
             {/* User Info */}
             <div className="flex-1 w-full">
-              {isEditing ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Full Name</label>
-                    <input
-                      type="text"
-                      value={editForm.full_name}
-                      onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 bg-light-100 dark:bg-dark-700 border border-light-200 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin text-dark-900 dark:text-white"
-                      placeholder="Enter your full name"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Username</label>
-                    <div className="relative mt-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400">@</span>
-                      <input
-                        type="text"
-                        value={editForm.username}
-                        onChange={(e) => setEditForm({ ...editForm, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })}
-                        className="w-full pl-8 pr-3 py-2 bg-light-100 dark:bg-dark-700 border border-light-200 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin text-dark-900 dark:text-white"
-                        placeholder="username"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h2 className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white">
-                    {profile?.full_name || 'User'}
-                  </h2>
-                  <p className="text-dark-500 dark:text-dark-400 flex items-center gap-1 mt-1">
-                    @{profile?.username}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-bitcoin/10 text-accent-bitcoin rounded-full text-xs font-medium">
-                      <Shield className="w-3 h-3" />
-                      {profile?.role === 'admin' ? 'Administrator' : 'Member'}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      isActiveMember
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                        : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                    }`}>
-                      <Activity className="w-3 h-3" />
-                      {isActiveMember ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </>
-              )}
+              <h2 className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white">
+                {profile?.full_name || 'User'}
+              </h2>
+              <p className="text-dark-500 dark:text-dark-400 flex items-center gap-1 mt-1">
+                @{profile?.username}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-bitcoin/10 text-accent-bitcoin rounded-full text-xs font-medium">
+                  <Shield className="w-3 h-3" />
+                  {profile?.role === 'admin' ? 'Administrator' : 'Member'}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  isActiveMember
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                    : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                }`}>
+                  <Activity className="w-3 h-3" />
+                  {isActiveMember ? 'Active' : 'Inactive'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -337,43 +205,8 @@ const UserProfile: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Invite Code Card */}
-      {inviteCode && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-4 sm:p-6 shadow-lg text-white"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Star className="w-5 h-5 text-yellow-300" />
-                <h3 className="text-lg font-bold">Your Invite Code</h3>
-              </div>
-              <p className="text-white/80 text-sm">Share this code with friends to grow your team</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 bg-white/20 rounded-lg font-mono text-lg sm:text-xl font-bold tracking-wider">
-                {inviteCode}
-              </div>
-              <button
-                onClick={copyInviteCode}
-                className={`p-3 rounded-lg transition-all ${
-                  copied
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                }`}
-              >
-                {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {/* Total Earnings */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -412,7 +245,7 @@ const UserProfile: React.FC = () => {
           </p>
         </motion.div>
 
-        {/* Team Members */}
+        {/* Pending Balance */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -420,30 +253,8 @@ const UserProfile: React.FC = () => {
           className="bg-white dark:bg-dark-800 rounded-2xl p-4 sm:p-5 shadow-lg"
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center shadow-lg">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <ChevronRight className="w-5 h-5 text-dark-300 dark:text-dark-500" />
-          </div>
-          <p className="text-xs sm:text-sm text-dark-500 dark:text-dark-400 font-medium">Team Members</p>
-          <p className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white mt-1">
-            {totalTeamMembers}
-          </p>
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-            {activeTeamMembers} active
-          </p>
-        </motion.div>
-
-        {/* Pending Balance */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="bg-white dark:bg-dark-800 rounded-2xl p-4 sm:p-5 shadow-lg"
-        >
-          <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-purple-400 to-pink-600 flex items-center justify-center shadow-lg">
-              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <ChevronRight className="w-5 h-5 text-dark-300 dark:text-dark-500" />
           </div>
@@ -540,6 +351,26 @@ const UserProfile: React.FC = () => {
             </button>
           )}
         </div>
+      </motion.div>
+
+      {/* Logout Button */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white dark:bg-dark-800 text-red-600 dark:text-red-400 font-semibold rounded-2xl shadow-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+        >
+          {loggingOut ? (
+            <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <LogOut className="w-5 h-5" />
+          )}
+          <span>{loggingOut ? 'Logging out...' : 'Logout'}</span>
+        </button>
       </motion.div>
     </div>
   );

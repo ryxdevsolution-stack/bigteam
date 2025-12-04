@@ -1,280 +1,343 @@
-import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Volume2, VolumeX, ChevronLeft, ArrowLeft } from 'lucide-react';
+import { Loader2, Volume2, VolumeX, Play, Pause, ArrowLeft } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { VideoGridSkeleton } from '../../shared/Skeleton';
+import api from '../../../services/api';
 
 const VideoTab: React.FC = memo(() => {
   const navigate = useNavigate();
   const { posts, postsLoading, fetchPosts } = useData();
-  const [viewMode, setViewMode] = useState<'grid' | 'feed'>(() => {
-    // Auto-open in feed mode on mobile
-    return window.innerWidth < 1024 ? 'feed' : 'grid';
-  });
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+
+  // State
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const [showPlayIcon, setShowPlayIcon] = useState(false);
+  const [showHint, setShowHint] = useState(true);
+
+  // Refs
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const viewTrackedRef = useRef<Set<string>>(new Set());
+  const isScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Memoize filtered videos to prevent recalculation
-  const videos = useMemo(() => posts.filter(post => post.media_type === 'video'), [posts]);
+  // Filter videos only
+  const videos = useMemo(
+    () => posts.filter(post => post.media_type?.toLowerCase() === 'video'),
+    [posts]
+  );
 
-  // Only fetch if posts are empty - DataContext handles caching
+  // Fetch posts if needed
   useEffect(() => {
     if (posts.length === 0) {
       fetchPosts();
     }
   }, [fetchPosts, posts.length]);
 
-  // Auto-play video when it's in view (for mobile scroll reels)
-  useEffect(() => {
-    if (viewMode === 'feed' && videos.length > 0) {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            const video = entry.target as HTMLVideoElement;
-            if (entry.isIntersecting) {
-              video.play().catch(() => {});
-            } else {
-              video.pause();
-            }
-          });
-        },
-        { threshold: 0.7 }
-      );
+  // Current video object
+  const currentVideo = videos[currentIndex];
 
-      Object.values(videoRefs.current).forEach((video) => {
-        if (video && observerRef.current) {
-          observerRef.current.observe(video);
-        }
+  // Track view (fire and forget)
+  const trackView = useCallback(async (contentId: string) => {
+    if (viewTrackedRef.current.has(contentId)) return;
+    viewTrackedRef.current.add(contentId);
+    try {
+      await api.post(`/api/feed/${contentId}/interact`, {
+        type: 'view'
       });
+    } catch {
+      // Silent fail - view tracking is non-critical
+    }
+  }, []);
 
+  // Track view when video changes
+  useEffect(() => {
+    if (currentVideo) {
+      trackView(currentVideo.id);
+    }
+  }, [currentVideo, trackView]);
+
+  // Video playback management
+  useEffect(() => {
+    if (!currentVideo) return;
+
+    const video = videoRefs.current[currentVideo.id];
+    if (video) {
+      video.muted = isMuted;
+      if (isPlaying) {
+        // Small delay to ensure video element is ready
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Auto-play was prevented, try muted
+            video.muted = true;
+            video.play().catch(() => {});
+          });
+        }
+      } else {
+        video.pause();
+      }
+    }
+
+    // Pause other videos
+    videos.forEach((v, i) => {
+      if (i !== currentIndex) {
+        const otherVideo = videoRefs.current[v.id];
+        if (otherVideo) {
+          otherVideo.pause();
+          otherVideo.currentTime = 0;
+        }
+      }
+    });
+  }, [currentIndex, currentVideo, videos, isMuted, isPlaying]);
+
+  // Navigation
+  const navigateContent = useCallback(
+    (direction: 'up' | 'down') => {
+      if (direction === 'up' && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+        setIsPlaying(true);
+        setShowHint(false);
+      } else if (direction === 'down' && currentIndex < videos.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+        setIsPlaying(true);
+        setShowHint(false);
+      }
+    },
+    [currentIndex, videos.length]
+  );
+
+  // Touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 50) navigateContent('down');
+    else if (distance < -50) navigateContent('up');
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
+  // Wheel handler with debouncing - one video per scroll
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+
+      // Ignore if already scrolling or delta is too small
+      if (isScrollingRef.current || Math.abs(e.deltaY) < 30) return;
+
+      // Set scrolling flag to prevent multiple triggers
+      isScrollingRef.current = true;
+
+      // Navigate based on scroll direction
+      if (e.deltaY > 0) {
+        navigateContent('down');
+      } else {
+        navigateContent('up');
+      }
+
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Reset scrolling flag after delay (prevents rapid scrolling)
+      scrollTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 400); // 400ms cooldown between scrolls
+    },
+    [navigateContent]
+  );
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
       return () => {
-        if (observerRef.current) {
-          observerRef.current.disconnect();
+        container.removeEventListener('wheel', handleWheel);
+        // Cleanup timeout on unmount
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
         }
       };
     }
-  }, [viewMode, videos]);
+  }, [handleWheel]);
 
-  // Mute/unmute all videos
+  // Play/Pause toggle
+  const togglePlayPause = () => {
+    setIsPlaying(prev => !prev);
+    setShowPlayIcon(true);
+    setTimeout(() => setShowPlayIcon(false), 600);
+  };
+
+  // Hide hint after timeout
   useEffect(() => {
-    Object.values(videoRefs.current).forEach((video) => {
-      if (video) {
-        video.muted = isMuted;
-      }
-    });
-  }, [isMuted]);
+    if (showHint && videos.length > 1) {
+      const timer = setTimeout(() => setShowHint(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showHint, videos.length]);
 
-  const handleVideoClick = (_index: number) => {
-    setSelectedVideoIndex(_index);
-    setViewMode('feed');
-
-    // Scroll to the selected video after a short delay to ensure DOM is ready
-    setTimeout(() => {
-      const videoElement = document.getElementById(`video-${videos[_index].id}`);
-      if (videoElement) {
-        videoElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-      }
-    }, 100);
-  };
-
-  const handleClose = () => {
-    // Pause all videos before closing
-    Object.values(videoRefs.current).forEach((video) => {
-      if (video) {
-        video.pause();
-      }
-    });
-
-    setViewMode('grid');
-
-    // Scroll to top of grid view
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-
-  // Show skeleton loading only on initial load
+  // Loading state
   if (postsLoading && posts.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-light-200 dark:bg-dark-700 rounded-lg animate-pulse" />
-            <div className="h-8 w-32 bg-light-200 dark:bg-dark-700 rounded animate-pulse" />
-          </div>
-          <div className="h-4 w-48 bg-light-200 dark:bg-dark-700 rounded animate-pulse ml-14" />
-        </div>
-        <VideoGridSkeleton count={8} />
+      <div className="fixed inset-0 flex items-center justify-center bg-black z-40">
+        <Loader2 className="w-12 h-12 animate-spin text-white" />
       </div>
     );
   }
 
-  if (viewMode === 'feed' && videos.length > 0) {
+  // Empty state
+  if (videos.length === 0) {
     return (
-      <>
-        <style>{`
-          .reels-container::-webkit-scrollbar {
-            display: none;
-          }
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          .reels-container {
-            animation: fadeIn 0.2s ease-in;
-          }
-        `}</style>
-        {/* Mobile: Vertical Scrollable Reels */}
-        <div
-          className="reels-container fixed inset-0 bg-black z-[100] lg:hidden overflow-y-scroll snap-y snap-mandatory scroll-smooth"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-black z-40">
+        <button
+          onClick={() => navigate('/user/home')}
+          className="absolute top-4 left-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
         >
-          {videos.map((video, __index) => (
-            <div
-              key={video.id}
-              id={`video-${video.id}`}
-              className="relative w-full h-screen snap-start snap-always flex items-center justify-center"
-            >
-              <video
-                ref={el => { if (el) videoRefs.current[video.id] = el; }}
-                src={video.media_url}
-                className="w-full h-full object-cover"
-                loop
-                playsInline
-                muted={isMuted}
-              />
-
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 pointer-events-none" />
-
-              <button
-                onClick={handleClose}
-                className="absolute top-4 left-4 z-10 p-2.5 bg-black/50 backdrop-blur-md rounded-full active:scale-95 transition-transform"
-              >
-                <ChevronLeft className="w-5 h-5 text-white" />
-              </button>
-
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="absolute top-4 right-4 z-10 p-2.5 bg-black/50 backdrop-blur-md rounded-full active:scale-95 transition-transform"
-              >
-                {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
-              </button>
-
-              <div className="absolute bottom-24 left-0 right-0 px-4 z-10 pointer-events-none">
-                <h2 className="text-white font-bold text-base mb-1 drop-shadow-lg">
-                  @{video.created_by}
-                </h2>
-                <p className="text-white text-sm drop-shadow-lg line-clamp-2">
-                  {video.title}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Desktop: Single Video View */}
-        <div className="hidden lg:block h-[600px] bg-black rounded-2xl overflow-hidden">
-          <div className="relative w-full h-full max-w-md mx-auto">
-            <video
-              ref={el => { if (el) videoRefs.current[videos[selectedVideoIndex].id] = el; }}
-              src={videos[selectedVideoIndex].media_url}
-              className="w-full h-full object-contain"
-              loop
-              playsInline
-              muted={isMuted}
-              autoPlay
-            />
-            <button
-              onClick={handleClose}
-              className="absolute top-4 left-4 z-10 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-all"
-            >
-              <ChevronLeft className="w-6 h-6 text-white" />
-            </button>
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="absolute top-4 right-4 z-10 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-all"
-            >
-              {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
-            </button>
-            <div className="absolute bottom-8 left-4 right-4 text-white">
-              <h2 className="font-bold mb-1">@{videos[selectedVideoIndex].created_by}</h2>
-              <p className="text-sm line-clamp-2">{videos[selectedVideoIndex].title}</p>
-            </div>
+          <ArrowLeft className="w-6 h-6 text-white" />
+        </button>
+        <div className="text-center px-6">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
+            <Play className="w-10 h-10 text-white/60" />
           </div>
+          <p className="text-xl text-white mb-2">No videos available</p>
+          <p className="text-sm text-gray-400">Check back later for new content</p>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg"
-      >
-        <div className="flex items-center gap-3 mb-2">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 bg-black overflow-hidden z-40"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full max-w-full sm:max-w-[600px] mx-auto">
+          {/* Back button */}
           <button
             onClick={() => navigate('/user/home')}
-            className="p-2 hover:bg-light-100 dark:hover:bg-dark-700 rounded-lg transition-colors active:scale-95"
+            className="absolute top-4 left-4 z-20 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-dark-900 dark:text-white" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </button>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white">
-            Videos
-          </h1>
-        </div>
-        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-300 ml-14">
-          Browse all video content
-        </p>
-      </motion.div>
 
-      {videos.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-white dark:bg-dark-800 rounded-xl sm:rounded-2xl p-12 text-center shadow-lg"
-        >
-          <Play className="w-16 h-16 mx-auto mb-4 text-dark-300 dark:text-dark-600" />
-          <p className="text-dark-600 dark:text-dark-300">No videos available</p>
-        </motion.div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {videos.map((video, videoIndex) => (
-            <motion.div
-              key={video.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: videoIndex * 0.05 }}
-              onClick={() => handleVideoClick(videoIndex)}
-              className="relative aspect-[9/16] rounded-lg sm:rounded-xl overflow-hidden cursor-pointer group shadow-lg hover:shadow-2xl transition-shadow"
-            >
-              <img
-                src={video.thumbnail_url || video.media_url}
-                alt={video.title}
-                className="w-full h-full object-cover"
-                loading="lazy"
+          {/* Videos - render current and adjacent for preloading */}
+          {videos.map((video, index) => {
+            const isCurrentVideo = index === currentIndex;
+            const isAdjacentVideo = Math.abs(index - currentIndex) === 1;
+
+            // Only render current and adjacent videos for performance
+            if (!isCurrentVideo && !isAdjacentVideo) return null;
+
+            return (
+              <video
+                key={video.id}
+                ref={el => {
+                  if (el) videoRefs.current[video.id] = el;
+                }}
+                src={video.media_url}
+                poster={video.thumbnail_url}
+                className={`absolute inset-0 w-full h-full object-contain cursor-pointer transition-opacity duration-300 ${
+                  isCurrentVideo ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                }`}
+                loop
+                playsInline
+                muted={isMuted}
+                autoPlay={isCurrentVideo}
+                preload={isAdjacentVideo ? 'metadata' : 'auto'}
+                onClick={isCurrentVideo ? togglePlayPause : undefined}
               />
+            );
+          })}
 
-              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                <Play className="w-10 h-10 sm:w-12 sm:h-12 text-white drop-shadow-lg" />
+          {/* Play/Pause indicator (brief flash) */}
+          {showPlayIcon && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="p-4 bg-black/50 rounded-full animate-pulse">
+                {isPlaying ? (
+                  <Play className="w-12 h-12 text-white" />
+                ) : (
+                  <Pause className="w-12 h-12 text-white" />
+                )}
               </div>
+            </div>
+          )}
 
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 sm:p-3">
-                <p className="text-white text-xs sm:text-sm font-semibold line-clamp-2">
-                  {video.title}
-                </p>
+          {/* Mute toggle */}
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className="absolute top-4 right-4 z-20 p-2 bg-black/40 backdrop-blur-sm rounded-full hover:bg-black/60 transition-colors"
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5 text-white" />
+            ) : (
+              <Volume2 className="w-5 h-5 text-white" />
+            )}
+          </button>
+
+          {/* Progress dots */}
+          {videos.length > 1 && (
+            <div className="absolute top-1/2 right-3 -translate-y-1/2 z-10">
+              <div className="flex flex-col items-center space-y-1.5">
+                {videos.slice(0, 8).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setCurrentIndex(i);
+                      setIsPlaying(true);
+                      setShowHint(false);
+                    }}
+                    className={`rounded-full transition-all ${
+                      i === currentIndex
+                        ? 'bg-white w-2 h-4'
+                        : 'bg-white/40 w-1.5 h-1.5 hover:bg-white/60'
+                    }`}
+                  />
+                ))}
+                {videos.length > 8 && (
+                  <span className="text-white/60 text-xs mt-1">+{videos.length - 8}</span>
+                )}
               </div>
-            </motion.div>
-          ))}
+            </div>
+          )}
+
+          {/* Video counter */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+            <div className="bg-black/40 backdrop-blur-sm rounded-full px-3 py-1">
+              <span className="text-white text-sm font-medium">
+                {currentIndex + 1} / {videos.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Swipe hint (first video only) */}
+          {showHint && currentIndex === 0 && videos.length > 1 && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none animate-bounce">
+              <div className="bg-black/60 backdrop-blur-sm rounded-2xl px-6 py-3">
+                <p className="text-white text-sm">Swipe up for next</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 });
 
 VideoTab.displayName = 'VideoTab';
-
 export default VideoTab;

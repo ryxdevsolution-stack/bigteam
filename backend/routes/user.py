@@ -224,15 +224,19 @@ def get_home_data():
         try:
             cur = conn.cursor()
 
-            # Get random videos (limit 4)
+            # Get random videos (limit 4) - using efficient offset-based sampling
             videos = []
             cur.execute("""
+                WITH video_count AS (
+                    SELECT GREATEST(COUNT(*) - 4, 0) AS max_offset
+                    FROM posts WHERE media_type = 'video' AND is_published = TRUE
+                )
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
                        created_by, created_at, likes_count, shares_count, views_count
                 FROM posts
                 WHERE media_type = 'video' AND is_published = TRUE
-                ORDER BY RANDOM()
-                LIMIT 4
+                ORDER BY created_at DESC
+                LIMIT 4 OFFSET (SELECT floor(random() * max_offset) FROM video_count)
             """)
             rows = cur.fetchall()
             for row in rows:
@@ -251,15 +255,19 @@ def get_home_data():
                     'content_type': 'post'
                 })
 
-            # Get random photos (limit 4)
+            # Get random photos (limit 4) - using efficient offset-based sampling
             photos = []
             cur.execute("""
+                WITH photo_count AS (
+                    SELECT GREATEST(COUNT(*) - 4, 0) AS max_offset
+                    FROM posts WHERE media_type = 'image' AND is_published = TRUE
+                )
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
                        created_by, created_at, likes_count, shares_count, views_count
                 FROM posts
                 WHERE media_type = 'image' AND is_published = TRUE
-                ORDER BY RANDOM()
-                LIMIT 4
+                ORDER BY created_at DESC
+                LIMIT 4 OFFSET (SELECT floor(random() * max_offset) FROM photo_count)
             """)
             rows = cur.fetchall()
             for row in rows:
@@ -301,6 +309,30 @@ def get_home_data():
                     'end_date': row[7].isoformat() if row[7] else None
                 })
 
+            # Get upcoming meetings (limit 3 for home page)
+            meetings = []
+            cur.execute("""
+                SELECT m.id, m.title, m.description, m.zoom_link, m.meeting_date,
+                       m.meeting_time, m.duration_minutes, m.host_name
+                FROM meetings m
+                WHERE m.is_active = true
+                  AND m.meeting_date >= CURRENT_DATE
+                ORDER BY m.meeting_date ASC, m.meeting_time ASC
+                LIMIT 3
+            """)
+            rows = cur.fetchall()
+            for row in rows:
+                meetings.append({
+                    'id': str(row[0]),
+                    'title': row[1] or '',
+                    'description': row[2] or '',
+                    'zoom_link': row[3] or '',
+                    'meeting_date': row[4].isoformat() if row[4] else None,
+                    'meeting_time': row[5].strftime("%H:%M") if row[5] else None,
+                    'duration_minutes': row[6] or 60,
+                    'host_name': row[7] or ''
+                })
+
             cur.close()
 
             return jsonify({
@@ -309,7 +341,7 @@ def get_home_data():
                     'videos': videos,
                     'photos': photos,
                     'ads': ads,
-                    'meetings': []  # Future feature
+                    'meetings': meetings
                 }
             }), 200
 

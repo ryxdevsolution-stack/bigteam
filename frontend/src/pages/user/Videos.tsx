@@ -3,7 +3,7 @@ import VideoTab from '../../components/user/tabs/VideoTab';
 
 const Videos: React.FC = () => {
   return (
-    <div className="min-h-screen">
+    <div className="pb-4">
       <VideoTab />
     </div>
   );

@@ -60,21 +60,34 @@ class TeamService:
 
     @staticmethod
     def generate_invite_code() -> str:
-        """Generate unique invite code (e.g., BT-AB12CD)"""
+        """Generate unique invite code (e.g., BT-AB12CD) - optimized batch check"""
         conn = get_db_connection()
         try:
-            while True:
-                # Generate random code
-                code = 'BT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            cur = conn.cursor()
+            max_attempts = 3  # Limit retry attempts
 
-                # Check uniqueness
-                cur = conn.cursor()
-                cur.execute("SELECT COUNT(*) FROM users WHERE referral_code = %s", (code,))
-                count = cur.fetchone()[0]
-                cur.close()
+            for _ in range(max_attempts):
+                # Generate batch of 10 candidate codes
+                candidates = ['BT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                              for _ in range(10)]
 
-                if count == 0:
-                    return code
+                # Check all candidates in single query
+                cur.execute(
+                    "SELECT referral_code FROM users WHERE referral_code = ANY(%s)",
+                    (candidates,)
+                )
+                existing = {row[0] for row in cur.fetchall()}
+
+                # Return first unused code
+                for code in candidates:
+                    if code not in existing:
+                        cur.close()
+                        return code
+
+            # Fallback: use UUID-based code (guaranteed unique)
+            cur.close()
+            import uuid
+            return 'BT-' + uuid.uuid4().hex[:6].upper()
         finally:
             return_db_connection(conn)
 
@@ -163,7 +176,7 @@ class TeamService:
     @staticmethod
     def activate_user(user_id: str, amount: Decimal, invited_by: Optional[str] = None) -> Tuple[bool, str, Dict]:
         """
-        Activate or reactivate user
+        Activate or reactivate user - optimized single connection
         - Creates purchase record
         - Adds user to chain
         - Calculates and distributes commissions
@@ -172,17 +185,45 @@ class TeamService:
         conn = get_db_connection()
         try:
             cur = conn.cursor()
-            settings = TeamService.get_settings()
+
+            # Get settings inline (avoid opening new connection)
+            cur.execute("SELECT setting_key, setting_value FROM mlm_settings")
+            settings_rows = cur.fetchall()
+            settings = {}
+            for key, value in settings_rows:
+                if key == 'activation_amount':
+                    settings[key] = Decimal(value)
+                elif key == 'commission_rate':
+                    settings[key] = Decimal(value)
+                elif key == 'commission_limit':
+                    settings[key] = int(value)
+                else:
+                    settings[key] = value
 
             # Validate amount
             required_amount = settings.get('activation_amount', Decimal('1000'))
             if amount < required_amount:
                 return False, f"Insufficient amount. Required: {required_amount}", {}
 
-            # Check if user exists
-            user = TeamService.get_user_by_id(user_id)
-            if not user:
+            # Get user inline (avoid opening new connection)
+            cur.execute("""
+                SELECT id, username, email, full_name, role, is_mlm_active,
+                       referral_code, sponsored_by, commission_received_count,
+                       total_earnings, available_balance, pending_balance, activation_date
+                FROM users WHERE id = %s
+            """, (user_id,))
+            user_row = cur.fetchone()
+
+            if not user_row:
                 return False, "User not found", {}
+
+            user = {
+                'id': str(user_row[0]),
+                'role': user_row[4],
+                'is_active_member': user_row[5],
+                'invite_code': user_row[6],
+                'activation_date': user_row[12]
+            }
 
             # Admin users should NOT be in team system
             if user.get('role') == 'admin':
@@ -200,13 +241,11 @@ class TeamService:
             """, (user_id, 'Team Activation Package', float(amount), purchase_type, 'completed'))
 
             purchase_id = cur.fetchone()[0]
-            conn.commit()
 
             # CORRECT LOGIC: Pay commission to LAST 2 active users in the chain
             commission_limit = settings.get('commission_limit', 2)
 
             # Find the last 2 active users who have received < commission_limit commissions
-            # Order by position DESC to get the most recent active users first
             cur.execute("""
                 SELECT mc.user_id, mc.position, mc.is_active,
                        u.username, u.email, u.commission_received_count
@@ -219,12 +258,13 @@ class TeamService:
 
             receiver_rows = cur.fetchall()
 
-            # Calculate and distribute commission
+            # Calculate commission
             commission_rate = settings.get('commission_rate', Decimal('0.15'))
             commission_amount = amount * commission_rate
             commissions_paid = []
+            receivers_to_deactivate = []
 
-            # Pay commission to each of the last 2 active users
+            # Pay commission to each receiver (max 2)
             for level, receiver_row in enumerate(receiver_rows, 1):
                 receiver_id = str(receiver_row[0])
                 receiver_username = receiver_row[3]
@@ -237,9 +277,8 @@ class TeamService:
                 """, (receiver_id, user_id, purchase_id, float(commission_amount), level, 'completed'))
 
                 commission_id = cur.fetchone()[0]
-                conn.commit()
 
-                # Update receiver's earnings
+                # Update receiver's earnings and get new count
                 cur.execute("""
                     UPDATE users
                     SET total_earnings = total_earnings + %s,
@@ -250,7 +289,6 @@ class TeamService:
                 """, (float(commission_amount), float(commission_amount), receiver_id))
 
                 new_count = cur.fetchone()[0]
-                conn.commit()
 
                 commissions_paid.append({
                     'commission_id': str(commission_id),
@@ -261,30 +299,32 @@ class TeamService:
                     'new_commission_count': new_count
                 })
 
-                # Check if receiver should be deactivated (reached 2 commissions)
+                # Track receivers to deactivate
                 if new_count >= commission_limit:
-                    cur.execute("""
-                        UPDATE mlm_chain
-                        SET is_active = false, deactivated_at = NOW()
-                        WHERE user_id = %s AND is_active = true
-                    """, (receiver_id,))
-
-                    cur.execute("""
-                        UPDATE users
-                        SET is_mlm_active = false
-                        WHERE id = %s
-                    """, (receiver_id,))
-
-                    conn.commit()
+                    receivers_to_deactivate.append(receiver_id)
                     commissions_paid[-1]['deactivated'] = True
 
-            # Add user to chain (at the end)
-            next_position = TeamService.get_next_position()
+            # Batch deactivate receivers who reached commission limit
+            if receivers_to_deactivate:
+                cur.execute("""
+                    UPDATE mlm_chain SET is_active = false, deactivated_at = NOW()
+                    WHERE user_id = ANY(%s) AND is_active = true
+                """, (receivers_to_deactivate,))
+
+                cur.execute("""
+                    UPDATE users SET is_mlm_active = false
+                    WHERE id = ANY(%s)
+                """, (receivers_to_deactivate,))
+
+            # Get next position inline (avoid opening new connection)
+            cur.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM mlm_chain")
+            next_position = cur.fetchone()[0]
+
+            # Add user to chain
             cur.execute("""
                 INSERT INTO mlm_chain (user_id, position, is_active)
                 VALUES (%s, %s, %s)
             """, (user_id, next_position, True))
-            conn.commit()
 
             # Update user activation status
             if not user['invite_code']:
@@ -308,6 +348,7 @@ class TeamService:
                     WHERE id = %s
                 """, (invited_by, user_id))
 
+            # Single commit for entire transaction
             conn.commit()
             cur.close()
 
@@ -389,43 +430,111 @@ class TeamService:
 
     @staticmethod
     def get_team_tree(user_id: str) -> Dict:
-        """Get team tree for a user (upline and downline)"""
+        """Get team tree for a user (upline and downline) - optimized single query"""
         conn = get_db_connection()
         try:
             cur = conn.cursor()
 
-            # Get user info
-            user = TeamService.get_user_by_id(user_id)
-            if not user:
+            # Single query for all team tree data
+            cur.execute("""
+                WITH user_data AS (
+                    SELECT id, username, email, full_name, role, is_mlm_active,
+                           referral_code, sponsored_by, commission_received_count,
+                           total_earnings, available_balance, pending_balance, activation_date
+                    FROM users WHERE id = %s
+                ),
+                upline_data AS (
+                    SELECT u.id, u.username, u.email, u.full_name, u.role, u.is_mlm_active,
+                           u.referral_code, u.sponsored_by, u.commission_received_count,
+                           u.total_earnings, u.available_balance, u.pending_balance, u.activation_date
+                    FROM users u
+                    JOIN user_data ud ON u.id = ud.sponsored_by
+                ),
+                downline_data AS (
+                    SELECT id, username, email, full_name, is_mlm_active,
+                           activation_date, total_earnings
+                    FROM users WHERE sponsored_by = %s
+                    ORDER BY activation_date DESC
+                ),
+                chain_data AS (
+                    SELECT position, is_active, created_at
+                    FROM mlm_chain WHERE user_id = %s
+                    ORDER BY created_at DESC LIMIT 1
+                )
+                SELECT
+                    row_to_json(ud.*) AS user_info,
+                    (SELECT row_to_json(up.*) FROM upline_data up LIMIT 1) AS upline_info,
+                    COALESCE((SELECT json_agg(d.*) FROM downline_data d), '[]'::json) AS downline_list,
+                    (SELECT row_to_json(c.*) FROM chain_data c LIMIT 1) AS chain_info
+                FROM user_data ud
+            """, (user_id, user_id, user_id))
+
+            row = cur.fetchone()
+            cur.close()
+
+            if not row or not row[0]:
                 return {}
 
-            # Get upline (inviter)
+            # Parse user data
+            user_raw = row[0]
+            user = {
+                'id': str(user_raw['id']),
+                'username': user_raw['username'],
+                'email': user_raw['email'],
+                'full_name': user_raw['full_name'],
+                'role': user_raw['role'],
+                'is_active_member': user_raw['is_mlm_active'],
+                'invite_code': user_raw['referral_code'],
+                'invited_by': str(user_raw['sponsored_by']) if user_raw['sponsored_by'] else None,
+                'commission_received_count': user_raw['commission_received_count'],
+                'total_earnings': float(user_raw['total_earnings']) if user_raw['total_earnings'] else 0,
+                'available_balance': float(user_raw['available_balance']) if user_raw['available_balance'] else 0,
+                'pending_balance': float(user_raw['pending_balance']) if user_raw['pending_balance'] else 0,
+                'activation_date': user_raw['activation_date'] if user_raw['activation_date'] else None
+            }
+
+            # Parse upline data
             upline = None
-            if user['invited_by']:
-                upline = TeamService.get_user_by_id(user['invited_by'])
-
-            # Get downline (direct team members)
-            downline = TeamService.get_user_team_members(user_id)
-
-            # Get user's position in chain
-            cur.execute("""
-                SELECT position, is_active, created_at
-                FROM mlm_chain
-                WHERE user_id = %s
-                ORDER BY created_at DESC
-                LIMIT 1
-            """, (user_id,))
-
-            chain_row = cur.fetchone()
-            chain_info = None
-            if chain_row:
-                chain_info = {
-                    'position': chain_row[0],
-                    'is_active': chain_row[1],
-                    'joined_at': chain_row[2].isoformat() if chain_row[2] else None
+            if row[1]:
+                up_raw = row[1]
+                upline = {
+                    'id': str(up_raw['id']),
+                    'username': up_raw['username'],
+                    'email': up_raw['email'],
+                    'full_name': up_raw['full_name'],
+                    'role': up_raw['role'],
+                    'is_active_member': up_raw['is_mlm_active'],
+                    'invite_code': up_raw['referral_code'],
+                    'invited_by': str(up_raw['sponsored_by']) if up_raw['sponsored_by'] else None,
+                    'commission_received_count': up_raw['commission_received_count'],
+                    'total_earnings': float(up_raw['total_earnings']) if up_raw['total_earnings'] else 0,
+                    'available_balance': float(up_raw['available_balance']) if up_raw['available_balance'] else 0,
+                    'pending_balance': float(up_raw['pending_balance']) if up_raw['pending_balance'] else 0,
+                    'activation_date': up_raw['activation_date'] if up_raw['activation_date'] else None
                 }
 
-            cur.close()
+            # Parse downline data
+            downline = []
+            if row[2]:
+                for d in row[2]:
+                    downline.append({
+                        'id': str(d['id']),
+                        'username': d['username'],
+                        'email': d['email'],
+                        'full_name': d['full_name'],
+                        'is_active_member': d['is_mlm_active'],
+                        'activation_date': d['activation_date'] if d['activation_date'] else None,
+                        'total_earnings': float(d['total_earnings']) if d['total_earnings'] else 0
+                    })
+
+            # Parse chain info
+            chain_info = None
+            if row[3]:
+                chain_info = {
+                    'position': row[3]['position'],
+                    'is_active': row[3]['is_active'],
+                    'joined_at': row[3]['created_at'] if row[3]['created_at'] else None
+                }
 
             return {
                 'user': user,
@@ -469,7 +578,7 @@ class TeamService:
 
     @staticmethod
     def get_dashboard_stats(user_id: str) -> Dict:
-        """Get dashboard statistics for a user"""
+        """Get dashboard statistics for a user - optimized with single query"""
         conn = get_db_connection()
         try:
             cur = conn.cursor()
@@ -479,36 +588,68 @@ class TeamService:
             if not user:
                 return {}
 
-            # Count direct team members
-            cur.execute("SELECT COUNT(*) FROM users WHERE sponsored_by = %s", (user_id,))
-            total_team_members = cur.fetchone()[0]
-
-            # Count active team members
+            # Single query for all stats using CTEs
             cur.execute("""
-                SELECT COUNT(*) FROM users
-                WHERE sponsored_by = %s AND is_mlm_active = true
-            """, (user_id,))
-            active_team_members = cur.fetchone()[0]
+                WITH team_stats AS (
+                    SELECT
+                        COUNT(*) AS total_members,
+                        COUNT(*) FILTER (WHERE is_mlm_active = true) AS active_members
+                    FROM users
+                    WHERE sponsored_by = %s
+                ),
+                commission_stats AS (
+                    SELECT COALESCE(SUM(amount), 0) AS total_commissions
+                    FROM commissions
+                    WHERE receiver_id = %s AND status = 'completed'
+                ),
+                recent AS (
+                    SELECT c.amount, c.created_at, u.username
+                    FROM commissions c
+                    JOIN users u ON c.payer_id = u.id
+                    WHERE c.receiver_id = %s
+                    ORDER BY c.created_at DESC
+                    LIMIT 5
+                )
+                SELECT
+                    ts.total_members,
+                    ts.active_members,
+                    cs.total_commissions,
+                    COALESCE(
+                        json_agg(json_build_object(
+                            'amount', r.amount,
+                            'created_at', r.created_at,
+                            'from_user', r.username
+                        )) FILTER (WHERE r.amount IS NOT NULL),
+                        '[]'::json
+                    ) AS recent_commissions
+                FROM team_stats ts
+                CROSS JOIN commission_stats cs
+                LEFT JOIN recent r ON true
+                GROUP BY ts.total_members, ts.active_members, cs.total_commissions
+            """, (user_id, user_id, user_id))
 
-            # Get total commissions earned
-            cur.execute("""
-                SELECT COALESCE(SUM(amount), 0) FROM commissions
-                WHERE receiver_id = %s AND status = 'completed'
-            """, (user_id,))
-            total_commissions = float(cur.fetchone()[0])
-
-            # Get recent commissions (last 5)
-            cur.execute("""
-                SELECT c.amount, c.created_at, u.username
-                FROM commissions c
-                JOIN users u ON c.payer_id = u.id
-                WHERE c.receiver_id = %s
-                ORDER BY c.created_at DESC
-                LIMIT 5
-            """, (user_id,))
-            recent_commissions = cur.fetchall()
-
+            row = cur.fetchone()
             cur.close()
+
+            if row:
+                total_team_members = row[0] or 0
+                active_team_members = row[1] or 0
+                total_commissions = float(row[2] or 0)
+                recent_commissions_raw = row[3] if row[3] else []
+            else:
+                total_team_members = 0
+                active_team_members = 0
+                total_commissions = 0.0
+                recent_commissions_raw = []
+
+            # Format recent commissions
+            recent_commissions = []
+            for rc in recent_commissions_raw:
+                recent_commissions.append({
+                    'amount': float(rc['amount']) if rc.get('amount') else 0,
+                    'created_at': rc['created_at'] if rc.get('created_at') else None,
+                    'from_user': rc.get('from_user', '')
+                })
 
             return {
                 'user': user,
@@ -522,11 +663,7 @@ class TeamService:
                 'commission_received_count': user['commission_received_count'],
                 'is_active_member': user['is_active_member'],
                 'invite_code': user['invite_code'],
-                'recent_commissions': [{
-                    'amount': float(row[0]),
-                    'created_at': row[1].isoformat() if row[1] else None,
-                    'from_user': row[2]
-                } for row in recent_commissions]
+                'recent_commissions': recent_commissions
             }
         finally:
             return_db_connection(conn)

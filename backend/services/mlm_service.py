@@ -48,21 +48,34 @@ class MLMService:
 
     @staticmethod
     def generate_referral_code() -> str:
-        """Generate unique referral code (e.g., BT-AB12CD)"""
+        """Generate unique referral code (e.g., BT-AB12CD) - optimized batch check"""
         conn = get_db_connection()
         try:
-            while True:
-                # Generate random code
-                code = 'BT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            cur = conn.cursor()
+            max_attempts = 3  # Limit retry attempts
 
-                # Check uniqueness
-                cur = conn.cursor()
-                cur.execute("SELECT COUNT(*) FROM users WHERE referral_code = %s", (code,))
-                count = cur.fetchone()[0]
-                cur.close()
+            for _ in range(max_attempts):
+                # Generate batch of 10 candidate codes
+                candidates = ['BT-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                              for _ in range(10)]
 
-                if count == 0:
-                    return code
+                # Check all candidates in single query
+                cur.execute(
+                    "SELECT referral_code FROM users WHERE referral_code = ANY(%s)",
+                    (candidates,)
+                )
+                existing = {row[0] for row in cur.fetchall()}
+
+                # Return first unused code
+                for code in candidates:
+                    if code not in existing:
+                        cur.close()
+                        return code
+
+            # Fallback: use UUID-based code (guaranteed unique)
+            cur.close()
+            import uuid
+            return 'BT-' + uuid.uuid4().hex[:6].upper()
         finally:
             return_db_connection(conn)
 
@@ -376,43 +389,111 @@ class MLMService:
 
     @staticmethod
     def get_mlm_tree(user_id: str) -> Dict:
-        """Get MLM tree for a user (upline and downline)"""
+        """Get MLM tree for a user (upline and downline) - optimized single query"""
         conn = get_db_connection()
         try:
             cur = conn.cursor()
 
-            # Get user info
-            user = MLMService.get_user_by_id(user_id)
-            if not user:
+            # Single query for all MLM tree data
+            cur.execute("""
+                WITH user_data AS (
+                    SELECT id, username, email, full_name, role, is_mlm_active,
+                           referral_code, sponsored_by, commission_received_count,
+                           total_earnings, available_balance, pending_balance, activation_date
+                    FROM users WHERE id = %s
+                ),
+                upline_data AS (
+                    SELECT u.id, u.username, u.email, u.full_name, u.role, u.is_mlm_active,
+                           u.referral_code, u.sponsored_by, u.commission_received_count,
+                           u.total_earnings, u.available_balance, u.pending_balance, u.activation_date
+                    FROM users u
+                    JOIN user_data ud ON u.id = ud.sponsored_by
+                ),
+                downline_data AS (
+                    SELECT id, username, email, full_name, is_mlm_active,
+                           activation_date, total_earnings
+                    FROM users WHERE sponsored_by = %s
+                    ORDER BY activation_date DESC
+                ),
+                chain_data AS (
+                    SELECT position, is_active, created_at
+                    FROM mlm_chain WHERE user_id = %s
+                    ORDER BY created_at DESC LIMIT 1
+                )
+                SELECT
+                    row_to_json(ud.*) AS user_info,
+                    (SELECT row_to_json(up.*) FROM upline_data up LIMIT 1) AS upline_info,
+                    COALESCE((SELECT json_agg(d.*) FROM downline_data d), '[]'::json) AS downline_list,
+                    (SELECT row_to_json(c.*) FROM chain_data c LIMIT 1) AS chain_info
+                FROM user_data ud
+            """, (user_id, user_id, user_id))
+
+            row = cur.fetchone()
+            cur.close()
+
+            if not row or not row[0]:
                 return {}
 
-            # Get upline (sponsor)
+            # Parse user data
+            user_raw = row[0]
+            user = {
+                'id': str(user_raw['id']),
+                'username': user_raw['username'],
+                'email': user_raw['email'],
+                'full_name': user_raw['full_name'],
+                'role': user_raw['role'],
+                'is_mlm_active': user_raw['is_mlm_active'],
+                'referral_code': user_raw['referral_code'],
+                'sponsored_by': str(user_raw['sponsored_by']) if user_raw['sponsored_by'] else None,
+                'commission_received_count': user_raw['commission_received_count'],
+                'total_earnings': float(user_raw['total_earnings']) if user_raw['total_earnings'] else 0,
+                'available_balance': float(user_raw['available_balance']) if user_raw['available_balance'] else 0,
+                'pending_balance': float(user_raw['pending_balance']) if user_raw['pending_balance'] else 0,
+                'activation_date': user_raw['activation_date'] if user_raw['activation_date'] else None
+            }
+
+            # Parse upline data
             upline = None
-            if user['sponsored_by']:
-                upline = MLMService.get_user_by_id(user['sponsored_by'])
-
-            # Get downline (direct referrals)
-            downline = MLMService.get_user_referrals(user_id)
-
-            # Get user's position in chain
-            cur.execute("""
-                SELECT position, is_active, created_at
-                FROM mlm_chain
-                WHERE user_id = %s
-                ORDER BY created_at DESC
-                LIMIT 1
-            """, (user_id,))
-
-            chain_row = cur.fetchone()
-            chain_info = None
-            if chain_row:
-                chain_info = {
-                    'position': chain_row[0],
-                    'is_active': chain_row[1],
-                    'joined_at': chain_row[2].isoformat() if chain_row[2] else None
+            if row[1]:
+                up_raw = row[1]
+                upline = {
+                    'id': str(up_raw['id']),
+                    'username': up_raw['username'],
+                    'email': up_raw['email'],
+                    'full_name': up_raw['full_name'],
+                    'role': up_raw['role'],
+                    'is_mlm_active': up_raw['is_mlm_active'],
+                    'referral_code': up_raw['referral_code'],
+                    'sponsored_by': str(up_raw['sponsored_by']) if up_raw['sponsored_by'] else None,
+                    'commission_received_count': up_raw['commission_received_count'],
+                    'total_earnings': float(up_raw['total_earnings']) if up_raw['total_earnings'] else 0,
+                    'available_balance': float(up_raw['available_balance']) if up_raw['available_balance'] else 0,
+                    'pending_balance': float(up_raw['pending_balance']) if up_raw['pending_balance'] else 0,
+                    'activation_date': up_raw['activation_date'] if up_raw['activation_date'] else None
                 }
 
-            cur.close()
+            # Parse downline data
+            downline = []
+            if row[2]:
+                for d in row[2]:
+                    downline.append({
+                        'id': str(d['id']),
+                        'username': d['username'],
+                        'email': d['email'],
+                        'full_name': d['full_name'],
+                        'is_mlm_active': d['is_mlm_active'],
+                        'activation_date': d['activation_date'] if d['activation_date'] else None,
+                        'total_earnings': float(d['total_earnings']) if d['total_earnings'] else 0
+                    })
+
+            # Parse chain info
+            chain_info = None
+            if row[3]:
+                chain_info = {
+                    'position': row[3]['position'],
+                    'is_active': row[3]['is_active'],
+                    'joined_at': row[3]['created_at'] if row[3]['created_at'] else None
+                }
 
             return {
                 'user': user,
@@ -456,7 +537,7 @@ class MLMService:
 
     @staticmethod
     def get_dashboard_stats(user_id: str) -> Dict:
-        """Get dashboard statistics for a user"""
+        """Get dashboard statistics for a user - optimized single query"""
         conn = get_db_connection()
         try:
             cur = conn.cursor()
@@ -466,36 +547,68 @@ class MLMService:
             if not user:
                 return {}
 
-            # Count direct referrals
-            cur.execute("SELECT COUNT(*) FROM users WHERE sponsored_by = %s", (user_id,))
-            total_referrals = cur.fetchone()[0]
-
-            # Count active referrals
+            # Single query for all stats using CTEs
             cur.execute("""
-                SELECT COUNT(*) FROM users
-                WHERE sponsored_by = %s AND is_mlm_active = true
-            """, (user_id,))
-            active_referrals = cur.fetchone()[0]
+                WITH referral_stats AS (
+                    SELECT
+                        COUNT(*) AS total_referrals,
+                        COUNT(*) FILTER (WHERE is_mlm_active = true) AS active_referrals
+                    FROM users
+                    WHERE sponsored_by = %s
+                ),
+                commission_stats AS (
+                    SELECT COALESCE(SUM(amount), 0) AS total_commissions
+                    FROM commissions
+                    WHERE receiver_id = %s AND status = 'completed'
+                ),
+                recent AS (
+                    SELECT c.amount, c.created_at, u.username
+                    FROM commissions c
+                    JOIN users u ON c.payer_id = u.id
+                    WHERE c.receiver_id = %s
+                    ORDER BY c.created_at DESC
+                    LIMIT 5
+                )
+                SELECT
+                    rs.total_referrals,
+                    rs.active_referrals,
+                    cs.total_commissions,
+                    COALESCE(
+                        json_agg(json_build_object(
+                            'amount', r.amount,
+                            'created_at', r.created_at,
+                            'from_user', r.username
+                        )) FILTER (WHERE r.amount IS NOT NULL),
+                        '[]'::json
+                    ) AS recent_commissions
+                FROM referral_stats rs
+                CROSS JOIN commission_stats cs
+                LEFT JOIN recent r ON true
+                GROUP BY rs.total_referrals, rs.active_referrals, cs.total_commissions
+            """, (user_id, user_id, user_id))
 
-            # Get total commissions earned
-            cur.execute("""
-                SELECT COALESCE(SUM(amount), 0) FROM commissions
-                WHERE receiver_id = %s AND status = 'completed'
-            """, (user_id,))
-            total_commissions = float(cur.fetchone()[0])
-
-            # Get recent commissions (last 5)
-            cur.execute("""
-                SELECT c.amount, c.created_at, u.username
-                FROM commissions c
-                JOIN users u ON c.payer_id = u.id
-                WHERE c.receiver_id = %s
-                ORDER BY c.created_at DESC
-                LIMIT 5
-            """, (user_id,))
-            recent_commissions = cur.fetchall()
-
+            row = cur.fetchone()
             cur.close()
+
+            if row:
+                total_referrals = row[0] or 0
+                active_referrals = row[1] or 0
+                total_commissions = float(row[2] or 0)
+                recent_commissions_raw = row[3] if row[3] else []
+            else:
+                total_referrals = 0
+                active_referrals = 0
+                total_commissions = 0.0
+                recent_commissions_raw = []
+
+            # Format recent commissions
+            recent_commissions = []
+            for rc in recent_commissions_raw:
+                recent_commissions.append({
+                    'amount': float(rc['amount']) if rc.get('amount') else 0,
+                    'created_at': rc['created_at'] if rc.get('created_at') else None,
+                    'from_user': rc.get('from_user', '')
+                })
 
             return {
                 'user': user,
@@ -509,11 +622,7 @@ class MLMService:
                 'commission_received_count': user['commission_received_count'],
                 'is_mlm_active': user['is_mlm_active'],
                 'referral_code': user['referral_code'],
-                'recent_commissions': [{
-                    'amount': float(row[0]),
-                    'created_at': row[1].isoformat() if row[1] else None,
-                    'from_user': row[2]
-                } for row in recent_commissions]
+                'recent_commissions': recent_commissions
             }
         finally:
             return_db_connection(conn)

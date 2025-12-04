@@ -15,6 +15,7 @@ const UserTreeView = lazy(() => import('./pages/admin/UserTreeView'))
 const CustomerOverview = lazy(() => import('./pages/admin/CustomerOverview'))
 const AdManagement = lazy(() => import('./components/dashboard/AdManagement'))
 const MeetingManagement = lazy(() => import('./pages/admin/MeetingManagement'))
+const AdminProfile = lazy(() => import('./pages/admin/AdminProfile'))
 
 // Lazy load user components
 const UserLayout = lazy(() => import('./components/user/UserLayout'))
@@ -22,9 +23,9 @@ const UserProfile = lazy(() => import('./pages/user/Profile'))
 const TeamStructure = lazy(() => import('./pages/user/TeamStructure'))
 const Earnings = lazy(() => import('./pages/user/Earnings'))
 const Overview = lazy(() => import('./pages/user/Overview'))
-const Videos = lazy(() => import('./pages/user/Videos'))
 const Photos = lazy(() => import('./pages/user/Photos'))
 const Meetings = lazy(() => import('./pages/user/Meetings'))
+const Videos = lazy(() => import('./pages/user/Videos'))
 const TreeProfile = lazy(() => import('./pages/user/TreeProfile'))
 
 // Loading component
@@ -58,6 +59,7 @@ function App() {
               <Route path="ads" element={<AdManagement />} />
               <Route path="meetings" element={<MeetingManagement />} />
               <Route path="tree" element={<UserTreeView />} />
+              <Route path="profile" element={<AdminProfile />} />
               <Route index element={<Navigate to="dashboard" />} />
             </Route>
 
@@ -68,8 +70,8 @@ function App() {
               </ProtectedRoute>
             }>
               <Route path="home" element={<Overview />} />
-              <Route path="videos" element={<Videos />} />
               <Route path="photos" element={<Photos />} />
+              <Route path="videos" element={<Videos />} />
               <Route path="meetings" element={<Meetings />} />
               <Route path="tree-profile" element={<TreeProfile />} />
               <Route path="team-structure" element={<TeamStructure />} />

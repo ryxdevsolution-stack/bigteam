@@ -477,8 +477,123 @@ const AdManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Ads Table */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {ads.length === 0 ? (
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-8 text-center text-gray-500">
+            No advertisements found
+          </div>
+        ) : (
+          ads.map(ad => (
+            <div key={ad.id} className="bg-white dark:bg-dark-800 rounded-xl shadow-lg overflow-hidden">
+              {/* Media Preview */}
+              <div
+                className="relative aspect-video bg-black cursor-pointer"
+                onClick={() => {
+                  setSelectedAd(ad)
+                  setShowPreview(true)
+                }}
+              >
+                {ad.media_type === 'video' ? (
+                  <video
+                    src={ad.media_url}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={ad.media_url}
+                    alt={ad.title}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {/* Play icon overlay for videos */}
+                {ad.media_type === 'video' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                      <Film className="w-6 h-6 text-dark-800" />
+                    </div>
+                  </div>
+                )}
+                {/* Title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3">
+                  <h3 className="text-white font-semibold text-base line-clamp-1">{ad.title}</h3>
+                </div>
+              </div>
+
+              {/* Card Details */}
+              <div className="p-4 space-y-3">
+                {/* Type & Media badges */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    {ad.ad_type}
+                  </span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 flex items-center gap-1">
+                    {ad.media_type === 'video' ? <Film className="w-3 h-3" /> : <Image className="w-3 h-3" />}
+                    {ad.media_type}
+                  </span>
+                </div>
+
+                {/* Schedule */}
+                {ad.start_date && (
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <Calendar className="w-4 h-4" />
+                    <span>{new Date(ad.start_date).toLocaleDateString()}</span>
+                    {ad.end_date && (
+                      <>
+                        <span>-</span>
+                        <span>{new Date(ad.end_date).toLocaleDateString()}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions Row */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-dark-600">
+                  {/* Status Toggle */}
+                  <button
+                    onClick={() => toggleAdStatus(ad.id)}
+                    className="flex items-center gap-2"
+                  >
+                    {ad.status === 'active' ? (
+                      <ToggleRight className="w-8 h-8 text-green-500" />
+                    ) : (
+                      <ToggleLeft className="w-8 h-8 text-gray-400" />
+                    )}
+                    <span className={`text-sm font-medium ${ad.status === 'active' ? 'text-green-600' : 'text-gray-500'}`}>
+                      {ad.status === 'active' ? 'Active' : ad.status === 'scheduled' ? 'Scheduled' : 'Inactive'}
+                    </span>
+                  </button>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedAd(ad)
+                        setShowPreview(true)
+                      }}
+                      className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-dark-600 dark:hover:bg-dark-500 rounded-lg transition-colors"
+                    >
+                      <Eye className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    </button>
+                    <button
+                      onClick={() => deleteAd(ad.id)}
+                      className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white dark:bg-dark-800 rounded-xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-dark-700">

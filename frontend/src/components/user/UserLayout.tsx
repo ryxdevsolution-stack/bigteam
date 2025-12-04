@@ -9,8 +9,8 @@ const UserLayout: React.FC = () => {
       <UserSidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden w-full">
-        <main className="flex-1 overflow-y-auto p-4 pb-24 lg:p-6 lg:pb-8 xl:p-8">
-          <div className="max-w-full mx-auto h-full">
+        <main className="flex-1 overflow-y-auto p-4 pb-20 lg:p-6 lg:pb-8 xl:p-8">
+          <div className="max-w-full mx-auto">
             <Outlet />
           </div>
         </main>

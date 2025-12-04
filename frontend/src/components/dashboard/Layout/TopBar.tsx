@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, ChevronDown, Moon, Sun, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { tokenUtils, cacheUtils } from '../../../services/api';
 
 const TopBar: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -9,6 +10,8 @@ const TopBar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  const user = tokenUtils.getUser() || {};
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -47,11 +50,11 @@ const TopBar: React.FC = () => {
   };
 
   const handleLogout = () => {
-    // Clear any auth tokens from localStorage
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    // Navigate to login page
-    navigate('/login');
+    // Clear all auth tokens and cached data
+    tokenUtils.clearAll();
+    cacheUtils.clearAll();
+    // Force full page reload to reset all React state including DataContext
+    window.location.href = '/login';
   };
 
   return (
@@ -96,8 +99,8 @@ const TopBar: React.FC = () => {
                 <User className="w-5 h-5" />
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium">David Owner</p>
-                <p className="text-xs text-dark-400">admin@bigteam.net</p>
+                <p className="text-sm font-medium">{user.name || user.username || 'Admin User'}</p>
+                <p className="text-xs text-dark-400">{user.email || 'admin@bigteam.net'}</p>
               </div>
               <ChevronDown className={`w-4 h-4 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -111,8 +114,8 @@ const TopBar: React.FC = () => {
                   className="absolute right-0 mt-2 w-56 rounded-xl bg-dark-900 border border-dark-800 shadow-xl backdrop-blur-xl overflow-hidden z-50"
                 >
                   <div className="p-4 border-b border-dark-800">
-                    <p className="text-sm font-medium">David Owner</p>
-                    <p className="text-xs text-dark-400">Administrator</p>
+                    <p className="text-sm font-medium">{user.name || user.username || 'Admin User'}</p>
+                    <p className="text-xs text-dark-400">{user.role === 'admin' ? 'Administrator' : 'User'}</p>
                   </div>
                   <div className="p-2">
                     <button

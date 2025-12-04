@@ -38,6 +38,7 @@ const UserTreeView: React.FC = memo(() => {
   const [chainUsers, setChainUsers] = useState<ChainUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [_commissionAmount, _setCommissionAmount] = useState<number>(0);
+  const [commissionLimit, setCommissionLimit] = useState<number>(2);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   // Use refs to prevent duplicate fetches
@@ -77,6 +78,10 @@ const UserTreeView: React.FC = memo(() => {
       const commission = parseFloat(settings.activation_amount) * parseFloat(settings.commission_rate);
       _setCommissionAmount(commission);
 
+      // Get commission limit from settings (defaults to 2 if not set)
+      const limit = parseInt(settings.commission_limit) || 2;
+      setCommissionLimit(limit);
+
       hasFetchedRef.current = true;
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -97,7 +102,6 @@ const UserTreeView: React.FC = memo(() => {
   }, [fetchAllData]);
 
   const ChainNode = ({ user, index, showPayTo = false }: { user: ChainUser; index: number; showPayTo?: boolean }) => {
-    const commissionLimit = 2;
     const isCompleted = user.commission_received_count >= commissionLimit;
     const commissionPayers = user.received_commissions_from || [];
     const totalEarned = commissionPayers.reduce((sum, p) => sum + p.amount, 0);
@@ -292,8 +296,8 @@ const UserTreeView: React.FC = memo(() => {
 
   // Memoize derived values
   const { totalUsers, activeChainUsers, completedUsers, activeCount, completedCount } = useMemo(() => {
-    const active = chainUsers.filter(u => u.commission_received_count < 2);
-    const completed = chainUsers.filter(u => u.commission_received_count >= 2);
+    const active = chainUsers.filter(u => u.commission_received_count < commissionLimit);
+    const completed = chainUsers.filter(u => u.commission_received_count >= commissionLimit);
     return {
       totalUsers: chainUsers.length,
       activeChainUsers: active,
@@ -301,7 +305,7 @@ const UserTreeView: React.FC = memo(() => {
       activeCount: active.length,
       completedCount: completed.length
     };
-  }, [chainUsers]);
+  }, [chainUsers, commissionLimit]);
 
   // Get users based on active tab
   const displayUsers = useMemo(() =>
@@ -472,7 +476,7 @@ const UserTreeView: React.FC = memo(() => {
                       <p className={`text-[0.65rem] sm:text-xs font-medium truncate ${
                         idx === arr.length - 1 ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500'
                       }`}>{user.username}</p>
-                      <p className="text-[0.55rem] text-gray-400">🪙 {user.received_commissions_from?.reduce((s, p) => s + p.amount, 0).toFixed(0) || 0} • 2/2 ✓</p>
+                      <p className="text-[0.55rem] text-gray-400">🪙 {user.received_commissions_from?.reduce((s, p) => s + p.amount, 0).toFixed(0) || 0} • {commissionLimit}/{commissionLimit} ✓</p>
                     </div>
                   </div>
                 </div>

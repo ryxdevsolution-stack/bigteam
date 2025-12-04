@@ -3,7 +3,7 @@ import MeetingsTab from '../../components/user/tabs/MeetingsTab';
 
 const Meetings: React.FC = () => {
   return (
-    <div className="min-h-screen">
+    <div className="pb-4">
       <MeetingsTab />
     </div>
   );

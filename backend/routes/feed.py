@@ -29,7 +29,17 @@ def get_feed():
         )
         offset = (page - 1) * limit
 
-        # Get published posts
+        # Calculate posts needed (accounting for ads inserted every 5 posts)
+        # For 10 items with 1 ad per 5 posts, we need ~8-9 posts
+        ad_interval = 5
+        posts_per_page = limit - (limit // (ad_interval + 1))
+        posts_offset = offset - (offset // (ad_interval + 1))
+
+        # Get total posts count for pagination
+        cur.execute("SELECT COUNT(*) FROM posts WHERE is_published = true")
+        total_posts = cur.fetchone()[0]
+
+        # Get published posts with SQL-level pagination
         cur.execute("""
             SELECT
                 id, title, content, media_type, media_url,
@@ -39,10 +49,11 @@ def get_feed():
             FROM posts
             WHERE is_published = true
             ORDER BY created_at DESC
-        """)
+            LIMIT %s OFFSET %s
+        """, (posts_per_page + 2, posts_offset))  # Fetch a few extra to ensure we have enough
         posts = cur.fetchall()
 
-        # Get active advertisements (using status field, not is_active)
+        # Get active advertisements (usually few, OK to fetch all active)
         cur.execute("""
             SELECT
                 id, title, '' as content, media_type, media_url,
@@ -54,6 +65,7 @@ def get_feed():
             AND (start_date IS NULL OR start_date <= CURRENT_DATE)
             AND (end_date IS NULL OR end_date >= CURRENT_DATE)
             ORDER BY created_at DESC
+            LIMIT 10
         """)
         ads = cur.fetchall()
 
@@ -112,9 +124,12 @@ def get_feed():
             mixed_feed.append(formatted_ads[ad_index])
             ad_index += 1
 
-        # Apply pagination to mixed feed
-        total_items = len(mixed_feed)
-        paginated_feed = mixed_feed[offset:offset + limit]
+        # Apply final limit to mixed feed (already paginated at SQL level)
+        paginated_feed = mixed_feed[:limit]
+
+        # Calculate total items including ads
+        total_ads = len(ads)
+        total_items = total_posts + (total_posts // ad_interval)
 
         cur.close()
 

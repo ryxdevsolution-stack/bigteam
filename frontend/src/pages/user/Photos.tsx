@@ -3,7 +3,7 @@ import PhotoTab from '../../components/user/tabs/PhotoTab';
 
 const Photos: React.FC = () => {
   return (
-    <div className="min-h-screen">
+    <div className="pb-4">
       <PhotoTab />
     </div>
   );

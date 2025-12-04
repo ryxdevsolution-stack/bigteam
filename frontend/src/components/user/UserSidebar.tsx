@@ -9,12 +9,13 @@ import {
   Moon,
   Palette,
   DollarSign,
-  Video,
   Image,
-  Calendar
+  Calendar,
+  Film
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { tokenUtils, cacheUtils } from '../../services/api';
 
 interface MenuItem {
   id: string;
@@ -32,7 +33,7 @@ const UserSidebar: React.FC = () => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = tokenUtils.getUser() || {};
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -47,7 +48,7 @@ const UserSidebar: React.FC = () => {
 
   const menuItems: MenuItem[] = [
     { id: 'home', label: 'Home', icon: Home, path: '/user/home' },
-    { id: 'videos', label: 'Videos', icon: Video, path: '/user/videos' },
+    { id: 'videos', label: 'Videos', icon: Film, path: '/user/videos' },
     { id: 'photos', label: 'Photos', icon: Image, path: '/user/photos' },
     { id: 'meetings', label: 'Meetings', icon: Calendar, path: '/user/meetings' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/user/earnings' },
@@ -192,8 +193,10 @@ const UserSidebar: React.FC = () => {
                 <div className="border-t border-light-300 dark:border-dark-700">
                   <button
                     onClick={() => {
-                      localStorage.removeItem('authToken');
-                      localStorage.removeItem('user');
+                      // Clear all auth tokens and cached data
+                      tokenUtils.clearAll();
+                      cacheUtils.clearAll();
+                      // Force full page reload to reset all React state including DataContext
                       window.location.href = '/login';
                     }}
                     className="flex items-center space-x-3 w-full p-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group"

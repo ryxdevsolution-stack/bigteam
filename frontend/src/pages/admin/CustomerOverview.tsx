@@ -281,11 +281,11 @@ const CustomerOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - Hidden on mobile */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-dark-900 rounded-2xl p-4 sm:p-6 shadow-lg border border-light-200 dark:border-dark-700"
+        className="hidden sm:block bg-white dark:bg-dark-900 rounded-2xl p-4 sm:p-6 shadow-lg border border-light-200 dark:border-dark-700"
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -355,8 +355,16 @@ const CustomerOverview: React.FC = () => {
         />
       ) : (
         <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Mobile Header - Customer List title */}
+      <div className="sm:hidden">
+        <h1 className="text-xl font-bold text-dark-900 dark:text-white">Customer List</h1>
+        <p className="text-sm text-dark-600 dark:text-dark-400">
+          {customers.length} customers
+        </p>
+      </div>
+
+      {/* Stats Cards - 2 columns on mobile (4 cards), more on larger screens */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         <MetricCard
           title="Total Customers"
           value={stats.totalCustomers}
@@ -386,28 +394,33 @@ const CustomerOverview: React.FC = () => {
           trend="up"
           delay={0.3}
         />
-        <MetricCard
-          title="New This Month"
-          value={stats.newThisMonth}
-          icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />}
-          trend="up"
-          delay={0.4}
-        />
-        <MetricCard
-          title="Team Active"
-          value={stats.teamActiveCount}
-          icon={<CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />}
-          trend="neutral"
-          delay={0.5}
-        />
+        {/* Hidden on mobile - only show 4 cards */}
+        <div className="hidden sm:block">
+          <MetricCard
+            title="New This Month"
+            value={stats.newThisMonth}
+            icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />}
+            trend="up"
+            delay={0.4}
+          />
+        </div>
+        <div className="hidden sm:block">
+          <MetricCard
+            title="Team Active"
+            value={stats.teamActiveCount}
+            icon={<CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />}
+            trend="neutral"
+            delay={0.5}
+          />
+        </div>
       </div>
 
-      {/* Actions and Filters */}
+      {/* Actions and Filters - Hidden on mobile */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-white dark:bg-dark-900 rounded-2xl p-4 shadow-lg border border-light-200 dark:border-dark-700"
+        className="hidden sm:block bg-white dark:bg-dark-900 rounded-2xl p-4 shadow-lg border border-light-200 dark:border-dark-700"
       >
         <div className="flex flex-col gap-4">
           {/* Action Buttons */}
@@ -498,8 +511,8 @@ const CustomerOverview: React.FC = () => {
         transition={{ delay: 0.3 }}
         className="bg-white dark:bg-dark-900 rounded-2xl shadow-lg border border-light-200 dark:border-dark-700 overflow-hidden"
       >
-        {/* Table Header */}
-        <div className="p-4 border-b border-light-200 dark:border-dark-700">
+        {/* Table Header - Hidden on mobile (shown above stats) */}
+        <div className="hidden sm:block p-4 border-b border-light-200 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-dark-900 dark:text-white">
             Customer List
           </h3>

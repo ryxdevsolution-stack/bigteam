@@ -10,7 +10,7 @@ const Overview: React.FC = () => {
   }, [fetchHomeData]);
 
   return (
-    <div className="min-h-screen">
+    <div className="pb-4">
       <HomeTab />
     </div>
   );

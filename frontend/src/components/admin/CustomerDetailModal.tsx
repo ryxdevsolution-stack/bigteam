@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import {
   X,
@@ -8,14 +8,12 @@ import {
   Shield,
   Activity,
   DollarSign,
-  Users,
   CheckCircle,
   XCircle,
   Clock,
   TrendingUp,
   Award
 } from 'lucide-react'
-import { userService } from '../../services/userService'
 
 interface CustomerDetailModalProps {
   customer: {
@@ -37,37 +35,7 @@ interface CustomerDetailModalProps {
   onRefresh: () => void
 }
 
-interface TeamMemberData {
-  id: string
-  full_name: string
-  username: string
-  email: string
-  is_active: boolean
-  is_active_member: boolean
-  created_at: string
-}
-
 const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onClose }) => {
-  const [teamMembers, setTeamMembers] = useState<TeamMemberData[]>([])
-  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
-
-  useEffect(() => {
-    fetchTeamMembers()
-  }, [customer.id])
-
-  const fetchTeamMembers = async () => {
-    setLoadingTeamMembers(true)
-    try {
-      const teamMemberData = await userService.getTeamMembers(customer.id)
-      setTeamMembers(teamMemberData || [])
-    } catch (error) {
-      console.error('Error fetching team members:', error)
-      setTeamMembers([])
-    } finally {
-      setLoadingTeamMembers(false)
-    }
-  }
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -87,9 +55,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onC
     }).format(amount)
   }
 
-  const activeTeamMembers = teamMembers.filter(r => r.is_active).length
-  const activeMemberTeamMembers = teamMembers.filter(r => r.is_active_member).length
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -106,37 +71,37 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onC
         onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-light-200 dark:border-dark-700"
       >
-        {/* Header */}
-        <div className="relative bg-gradient-to-r from-accent-bitcoin to-accent-orange p-6">
+        {/* Header - Minimal */}
+        <div className="relative bg-gradient-to-r from-accent-bitcoin to-accent-orange px-3 py-2">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="absolute top-1.5 right-2 p-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-white" />
           </button>
 
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <User className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">{customer.full_name}</h2>
-              <p className="text-white/80 text-sm sm:text-base">@{customer.username || 'N/A'}</p>
-              <div className="flex items-center gap-2 mt-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white truncate">{customer.full_name}</h2>
+                <span className="text-white/70 text-xs">@{customer.username || 'N/A'}</span>
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
                 <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
                     customer.is_active
-                      ? 'bg-green-500/20 text-white border border-white/30'
-                      : 'bg-red-500/20 text-white border border-white/30'
+                      ? 'bg-green-500/30 text-white'
+                      : 'bg-red-500/30 text-white'
                   }`}
                 >
-                  {customer.is_active ? <CheckCircle className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
                   {customer.is_active ? 'Active' : 'Inactive'}
                 </span>
                 {customer.is_active_member && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-white border border-white/30">
-                    <Award className="w-3 h-3 mr-1" />
-                    Team Active
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/30 text-white">
+                    Member
                   </span>
                 )}
               </div>
@@ -249,82 +214,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, onC
               </div>
             </section>
 
-            {/* Team Members */}
-            <section>
-              <h3 className="text-lg font-semibold text-dark-900 dark:text-white mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-accent-bitcoin" />
-                Team Members
-              </h3>
-
-              {/* Team Member Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                <div className="bg-light-50 dark:bg-dark-800 rounded-xl p-4 text-center">
-                  <p className="text-xs text-dark-500 dark:text-dark-500 uppercase mb-1">Total Team Members</p>
-                  <p className="text-2xl font-bold text-dark-900 dark:text-white">{teamMembers.length}</p>
-                </div>
-                <div className="bg-light-50 dark:bg-dark-800 rounded-xl p-4 text-center">
-                  <p className="text-xs text-dark-500 dark:text-dark-500 uppercase mb-1">Active Users</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{activeTeamMembers}</p>
-                </div>
-                <div className="bg-light-50 dark:bg-dark-800 rounded-xl p-4 text-center">
-                  <p className="text-xs text-dark-500 dark:text-dark-500 uppercase mb-1">Active Members</p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{activeMemberTeamMembers}</p>
-                </div>
-              </div>
-
-              {/* Team Member List */}
-              <div className="bg-light-50 dark:bg-dark-800 rounded-xl p-4 max-h-64 overflow-y-auto">
-                {loadingTeamMembers ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-bitcoin"></div>
-                  </div>
-                ) : teamMembers.length > 0 ? (
-                  <div className="space-y-3">
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-3 bg-white dark:bg-dark-900 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-bitcoin to-accent-orange flex items-center justify-center">
-                            <User className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-dark-900 dark:text-white">
-                              {member.full_name}
-                            </p>
-                            <p className="text-xs text-dark-600 dark:text-dark-400">
-                              @{member.username} • {formatDate(member.created_at).split(',')[0]}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              member.is_active
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                            }`}
-                          >
-                            {member.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                          {member.is_active_member && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
-                              Member
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Users className="w-12 h-12 text-dark-400 mx-auto mb-2" />
-                    <p className="text-sm text-dark-600 dark:text-dark-400">No team members yet</p>
-                  </div>
-                )}
-              </div>
-            </section>
           </div>
         </div>
 

@@ -55,9 +55,9 @@ PhotoGridSkeleton.displayName = 'PhotoGridSkeleton';
 
 // Carousel skeleton
 export const CarouselSkeleton: React.FC = memo(() => (
-  <div className="py-6 sm:py-8 md:py-12 bg-gradient-to-br from-accent-bitcoin/10 via-accent-orange/10 to-accent-gold/10 rounded-xl sm:rounded-2xl">
-    <div className="flex flex-col items-center">
-      <Skeleton className="w-24 h-24 sm:w-32 sm:h-32 rounded-full mb-4" />
+  <div className="h-[20rem] sm:h-[22rem] md:h-[26rem] bg-gradient-to-br from-accent-bitcoin/10 via-accent-orange/10 to-accent-gold/10 rounded-xl sm:rounded-2xl">
+    <div className="flex flex-col items-center justify-center h-full">
+      <Skeleton className="w-full max-w-xs h-40 sm:h-48 md:h-56 rounded-lg mb-4 mx-4" />
       <Skeleton className="w-48 h-8 mb-2" />
       <Skeleton className="w-32 h-4" />
     </div>
