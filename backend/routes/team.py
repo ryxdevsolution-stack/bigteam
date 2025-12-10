@@ -19,6 +19,13 @@ def create_purchase():
     """
     Create purchase for activation/reactivation
     User can only purchase for themselves (enforced by token)
+
+    Body:
+    {
+        "amount": 1000,
+        "package_id": "uuid-of-package",  // Required for package-based commission
+        "invited_by": "uuid-of-inviter"   // Optional
+    }
     """
     try:
         data = request.get_json()
@@ -46,8 +53,16 @@ def create_purchase():
                 return jsonify({'error': 'Invalid inviter ID'}), 400
             invited_by = data.get('invited_by')
 
-        # Process activation
-        success, message, result = TeamService.activate_user(user_id, validated_amount, invited_by)
+        # Package ID for commission calculation (validated)
+        package_id = None
+        if data.get('package_id'):
+            is_valid, error = validate_uuid(data.get('package_id'))
+            if not is_valid:
+                return jsonify({'error': 'Invalid package ID'}), 400
+            package_id = data.get('package_id')
+
+        # Process activation with package
+        success, message, result = TeamService.activate_user(user_id, validated_amount, invited_by, package_id)
 
         if not success:
             return jsonify({

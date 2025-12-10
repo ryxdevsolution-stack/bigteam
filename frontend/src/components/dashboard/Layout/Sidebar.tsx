@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Palette,
   Megaphone,
-  Video
+  Video,
+  Package
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -53,6 +54,7 @@ const Sidebar: React.FC = () => {
     { id: 'content', label: 'Content', icon: FileVideo, path: '/admin/content', badge: 12 },
     { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
     { id: 'meetings', label: 'Meetings', icon: Video, path: '/admin/meetings' },
+    { id: 'packages', label: 'Packages', icon: Package, path: '/admin/packages' },
     { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },
   ];
 

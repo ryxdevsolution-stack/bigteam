@@ -174,13 +174,19 @@ class TeamService:
             return_db_connection(conn)
 
     @staticmethod
-    def activate_user(user_id: str, amount: Decimal, invited_by: Optional[str] = None) -> Tuple[bool, str, Dict]:
+    def activate_user(user_id: str, amount: Decimal, invited_by: Optional[str] = None, package_id: Optional[str] = None) -> Tuple[bool, str, Dict]:
         """
         Activate or reactivate user - optimized single connection
         - Creates purchase record
         - Adds user to chain
-        - Calculates and distributes commissions
+        - Calculates and distributes commissions based on package
         - Returns (success, message, data)
+
+        Args:
+            user_id: UUID of the user to activate
+            amount: Activation amount (should match package amount)
+            invited_by: Optional inviter user ID
+            package_id: UUID of the selected package (required for commission calculation)
         """
         conn = get_db_connection()
         try:
@@ -200,8 +206,38 @@ class TeamService:
                 else:
                     settings[key] = value
 
+            # Get package details if package_id provided
+            package = None
+            if package_id:
+                cur.execute("""
+                    SELECT id, name, amount, commission_percentage, is_active, is_deleted
+                    FROM packages WHERE id = %s
+                """, (package_id,))
+                package_row = cur.fetchone()
+
+                if not package_row:
+                    return False, "Package not found", {}
+
+                if not package_row[4]:  # is_active
+                    return False, "Package is not active", {}
+
+                if package_row[5]:  # is_deleted
+                    return False, "Package has been deleted", {}
+
+                package = {
+                    'id': str(package_row[0]),
+                    'name': package_row[1],
+                    'amount': Decimal(str(package_row[2])),
+                    'commission_percentage': Decimal(str(package_row[3]))
+                }
+
+                # Use package amount for validation
+                required_amount = package['amount']
+            else:
+                # Fallback to mlm_settings if no package provided (backward compatibility)
+                required_amount = settings.get('activation_amount', Decimal('1000'))
+
             # Validate amount
-            required_amount = settings.get('activation_amount', Decimal('1000'))
             if amount < required_amount:
                 return False, f"Insufficient amount. Required: {required_amount}", {}
 
@@ -233,12 +269,13 @@ class TeamService:
             is_reactivation = user['is_active_member'] or user['activation_date'] is not None
             purchase_type = 'reactivation' if is_reactivation else 'activation'
 
-            # Create purchase record
+            # Create purchase record with package_id
+            product_name = package['name'] if package else 'Team Activation Package'
             cur.execute("""
-                INSERT INTO purchases (user_id, product_name, amount, purchase_type, status)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO purchases (user_id, product_name, amount, purchase_type, status, package_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (user_id, 'Team Activation Package', float(amount), purchase_type, 'completed'))
+            """, (user_id, product_name, float(amount), purchase_type, 'completed', package_id))
 
             purchase_id = cur.fetchone()[0]
 
@@ -258,9 +295,15 @@ class TeamService:
 
             receiver_rows = cur.fetchall()
 
-            # Calculate commission
-            commission_rate = settings.get('commission_rate', Decimal('0.15'))
-            commission_amount = amount * commission_rate
+            # Calculate commission based on package or fallback to settings
+            if package:
+                # Use package-specific commission percentage
+                commission_rate = package['commission_percentage'] / Decimal('100')  # Convert 15 to 0.15
+                commission_amount = package['amount'] * commission_rate
+            else:
+                # Fallback to mlm_settings (backward compatibility)
+                commission_rate = settings.get('commission_rate', Decimal('0.15'))
+                commission_amount = amount * commission_rate
             commissions_paid = []
             receivers_to_deactivate = []
 

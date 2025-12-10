@@ -119,6 +119,7 @@ def create_tables():
                 amount DECIMAL(12, 2) NOT NULL,
                 purchase_type VARCHAR(20) CHECK (purchase_type IN ('activation', 'reactivation', 'product')),
                 status VARCHAR(20) DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+                package_id UUID,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -183,6 +184,22 @@ def create_tables():
         """)
         print("Meetings table created/verified")
 
+        # Create packages table for MLM activation packages
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS packages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(100) NOT NULL,
+                amount DECIMAL(12, 2) NOT NULL,
+                commission_percentage DECIMAL(5, 2) NOT NULL,
+                description TEXT,
+                is_active BOOLEAN DEFAULT true,
+                is_deleted BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        print("Packages table created/verified")
+
         # Insert default MLM settings if not exists
         cur.execute("""
             INSERT INTO mlm_settings (setting_key, setting_value, description)
@@ -216,10 +233,13 @@ def create_tables():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mlm_chain_active ON mlm_chain(is_active)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(meeting_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_meetings_active ON meetings(is_active)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_packages_active ON packages(is_active)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_packages_deleted ON packages(is_deleted)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_package ON purchases(package_id)")
         print("Indexes created/verified")
 
         # Show table counts
-        tables = ['users', 'posts', 'advertisements', 'user_interactions', 'purchases', 'commissions', 'mlm_chain', 'mlm_settings', 'meetings']
+        tables = ['users', 'posts', 'advertisements', 'user_interactions', 'purchases', 'commissions', 'mlm_chain', 'mlm_settings', 'meetings', 'packages']
         print("\nTable row counts:")
         for table in tables:
             try:
