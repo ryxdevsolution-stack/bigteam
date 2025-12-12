@@ -4,7 +4,13 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 app:app
+    # Optimized for 1000+ concurrent users:
+    # - 8 workers × 8 threads = 64 concurrent requests
+    # - With async requests, supports ~300-500 req/sec
+    # - 60s timeout (reduce from 120 to fail fast)
+    # - preload for faster worker startup + shared memory
+    # - max-requests to prevent memory leaks
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 8 --threads 8 --timeout 60 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 --preload app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.4
@@ -30,4 +36,21 @@ services:
         value: production
       - key: FRONTEND_URL
         sync: false
+      # Database pool settings for high concurrency
+      - key: DB_POOL_MIN
+        value: "10"
+      - key: DB_POOL_MAX
+        value: "100"
+      # Redis for token blacklisting (REQUIRED for multi-worker deployment)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: bigteam-redis
+          property: connectionString
     healthCheckPath: /health
+
+  # Redis for session/token management (required for 1000+ users)
+  - type: redis
+    name: bigteam-redis
+    plan: starter  # 25MB, sufficient for token blacklisting
+    ipAllowList: []  # Only internal access

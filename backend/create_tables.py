@@ -212,38 +212,83 @@ def create_tables():
         """)
         print("Default MLM settings inserted")
 
-        # Create indexes for better performance
+        # ============================================================
+        # PERFORMANCE INDEXES - Optimized for 1000+ concurrent users
+        # ============================================================
+
+        # Users table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_sponsored_by ON users(sponsored_by)")
+        # Composite index for admin user listing with filters
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_role_created ON users(role, created_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_active_status ON users(is_active, is_mlm_active)")
+        # Full-text search index for user search (name, email, username)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_search ON users USING gin(to_tsvector('english', full_name || ' ' || email || ' ' || COALESCE(username, '')))")
+
+        # Posts table indexes - Critical for feed/home performance
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_media_type ON posts(media_type)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_created_by ON posts(created_by)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_is_published ON posts(is_published)")
+        # CRITICAL: Composite index for feed queries (covers WHERE + ORDER BY)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_feed ON posts(is_published, created_at DESC) WHERE is_published = true")
+        # Composite index for media type filtering in home page
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_video_feed ON posts(created_at DESC) WHERE media_type = 'video' AND is_published = true")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_image_feed ON posts(created_at DESC) WHERE media_type = 'image' AND is_published = true")
+
+        # Advertisements table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_ads_status ON advertisements(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_ads_dates ON advertisements(start_date, end_date)")
+        # Composite index for active ads query
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_ads_active ON advertisements(status, end_date) WHERE status = 'active'")
+
+        # User interactions indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_interactions_user ON user_interactions(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_interactions_content ON user_interactions(content_id)")
+        # Composite index for checking existing interactions
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_interactions_lookup ON user_interactions(user_id, content_id, interaction_type)")
+
+        # Purchases table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_package ON purchases(package_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_created ON purchases(created_at DESC)")
+
+        # Commissions table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_commissions_receiver ON commissions(receiver_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_commissions_payer ON commissions(payer_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_commissions_created ON commissions(created_at DESC)")
+
+        # MLM chain indexes - Critical for commission distribution
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mlm_chain_user ON mlm_chain(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mlm_chain_position ON mlm_chain(position)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_mlm_chain_active ON mlm_chain(is_active)")
+        # CRITICAL: Composite index for chain queries (position lookup with active filter)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_mlm_chain_active_position ON mlm_chain(is_active, position DESC) WHERE is_active = true")
+
+        # Meetings table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(meeting_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_meetings_active ON meetings(is_active)")
+        # Composite index for upcoming meetings query
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_meetings_upcoming ON meetings(is_active, meeting_date, meeting_time) WHERE is_active = true")
+
+        # Packages table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_packages_active ON packages(is_active)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_packages_deleted ON packages(is_deleted)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_package ON purchases(package_id)")
-        print("Indexes created/verified")
+        # Composite index for available packages
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_packages_available ON packages(is_active, is_deleted) WHERE is_active = true AND is_deleted = false")
 
-        # Show table counts
-        tables = ['users', 'posts', 'advertisements', 'user_interactions', 'purchases', 'commissions', 'mlm_chain', 'mlm_settings', 'meetings', 'packages']
+        print("Performance indexes created/verified")
+
+        # Show table counts - using allowlist validation for table names
+        ALLOWED_TABLES = frozenset(['users', 'posts', 'advertisements', 'user_interactions', 'purchases', 'commissions', 'mlm_chain', 'mlm_settings', 'meetings', 'packages'])
         print("\nTable row counts:")
-        for table in tables:
+        for table in ALLOWED_TABLES:
             try:
-                cur.execute(f"SELECT COUNT(*) FROM {table}")
+                # Safe: table names are from hardcoded allowlist, using psycopg2's identifier quoting
+                from psycopg2 import sql
+                cur.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table)))
                 count = cur.fetchone()[0]
                 print(f"  {table}: {count} rows")
             except Exception:

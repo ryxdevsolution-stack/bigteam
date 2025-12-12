@@ -8,11 +8,8 @@ import {
   Shield,
   Activity,
   DollarSign,
-  CheckCircle,
-  XCircle,
   Clock,
-  TrendingUp,
-  Award
+  TrendingUp
 } from 'lucide-react'
 
 interface CustomerDetailModalProps {

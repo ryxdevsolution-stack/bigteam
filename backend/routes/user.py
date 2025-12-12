@@ -215,125 +215,161 @@ def get_team_settings():
 @user_bp.route('/home-data', methods=['GET'])
 @token_required
 def get_home_data():
-    """Get all home page data in single call (videos, photos, ads, meetings)"""
+    """
+    Get all home page data in single optimized call (videos, photos, ads, meetings)
+    Uses a single query with CTEs to minimize database round-trips
+    """
     try:
         from utils.db import get_db_connection, return_db_connection
-        from utils.validators import validate_pagination
+        from psycopg2.extras import RealDictCursor
 
         conn = get_db_connection()
         try:
-            cur = conn.cursor()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
 
-            # Get random videos (limit 4) - using efficient offset-based sampling
-            videos = []
+            # Single optimized query using CTEs - fetches all data in one round-trip
             cur.execute("""
-                WITH video_count AS (
-                    SELECT GREATEST(COUNT(*) - 4, 0) AS max_offset
-                    FROM posts WHERE media_type = 'video' AND is_published = TRUE
+                WITH videos AS (
+                    SELECT id, title, content, media_type, media_url, thumbnail_url,
+                           created_by, created_at, likes_count, shares_count, views_count,
+                           'video' as data_type
+                    FROM posts
+                    WHERE media_type = 'video' AND is_published = TRUE
+                    ORDER BY created_at DESC
+                    LIMIT 4
+                ),
+                photos AS (
+                    SELECT id, title, content, media_type, media_url, thumbnail_url,
+                           created_by, created_at, likes_count, shares_count, views_count,
+                           'photo' as data_type
+                    FROM posts
+                    WHERE media_type = 'image' AND is_published = TRUE
+                    ORDER BY created_at DESC
+                    LIMIT 4
+                ),
+                active_ads AS (
+                    SELECT id, title, description, media_type, media_url,
+                           link_url, start_date, end_date,
+                           NULL::bigint as likes_count, NULL::bigint as shares_count,
+                           NULL::bigint as views_count, NULL::uuid as created_by,
+                           NULL::timestamp as created_at, NULL::text as content,
+                           NULL::text as thumbnail_url,
+                           'ad' as data_type
+                    FROM advertisements
+                    WHERE status = 'active'
+                    AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                ),
+                upcoming_meetings AS (
+                    SELECT id, title, description, zoom_link, meeting_date,
+                           meeting_time, duration_minutes, host_name,
+                           NULL::bigint as likes_count, NULL::bigint as shares_count,
+                           NULL::bigint as views_count, NULL::uuid as created_by,
+                           NULL::timestamp as created_at, NULL::text as content,
+                           NULL::text as thumbnail_url, NULL::text as media_type,
+                           NULL::text as media_url, NULL::text as link_url,
+                           NULL::date as start_date, NULL::date as end_date,
+                           'meeting' as data_type
+                    FROM meetings
+                    WHERE is_active = true AND meeting_date >= CURRENT_DATE
+                    ORDER BY meeting_date ASC, meeting_time ASC
+                    LIMIT 3
                 )
+                -- Videos
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
-                       created_by, created_at, likes_count, shares_count, views_count
-                FROM posts
-                WHERE media_type = 'video' AND is_published = TRUE
-                ORDER BY created_at DESC
-                LIMIT 4 OFFSET (SELECT floor(random() * max_offset) FROM video_count)
-            """)
-            rows = cur.fetchall()
-            for row in rows:
-                videos.append({
-                    'id': str(row[0]),
-                    'title': row[1] or '',
-                    'content': row[2] or '',
-                    'media_type': row[3],
-                    'media_url': row[4] or '',
-                    'thumbnail_url': row[5] or '',
-                    'created_by': str(row[6]) if row[6] else 'Unknown',
-                    'created_at': row[7].isoformat() if row[7] else None,
-                    'likes_count': row[8] or 0,
-                    'shares_count': row[9] or 0,
-                    'views_count': row[10] or 0,
-                    'content_type': 'post'
-                })
-
-            # Get random photos (limit 4) - using efficient offset-based sampling
-            photos = []
-            cur.execute("""
-                WITH photo_count AS (
-                    SELECT GREATEST(COUNT(*) - 4, 0) AS max_offset
-                    FROM posts WHERE media_type = 'image' AND is_published = TRUE
-                )
+                       created_by, created_at, likes_count, shares_count, views_count,
+                       data_type, NULL as description, NULL as link_url,
+                       NULL as start_date, NULL as end_date,
+                       NULL as zoom_link, NULL as meeting_date, NULL as meeting_time,
+                       NULL as duration_minutes, NULL as host_name
+                FROM videos
+                UNION ALL
+                -- Photos
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
-                       created_by, created_at, likes_count, shares_count, views_count
-                FROM posts
-                WHERE media_type = 'image' AND is_published = TRUE
-                ORDER BY created_at DESC
-                LIMIT 4 OFFSET (SELECT floor(random() * max_offset) FROM photo_count)
+                       created_by, created_at, likes_count, shares_count, views_count,
+                       data_type, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                FROM photos
+                UNION ALL
+                -- Ads
+                SELECT id, title, content, media_type, media_url, thumbnail_url,
+                       created_by, created_at, likes_count, shares_count, views_count,
+                       data_type, description, link_url, start_date, end_date,
+                       NULL, NULL, NULL, NULL, NULL
+                FROM active_ads
+                UNION ALL
+                -- Meetings
+                SELECT id, title, content, media_type, media_url, thumbnail_url,
+                       created_by, created_at, likes_count, shares_count, views_count,
+                       data_type, description, link_url, start_date, end_date,
+                       zoom_link, meeting_date, meeting_time, duration_minutes, host_name
+                FROM upcoming_meetings
             """)
-            rows = cur.fetchall()
-            for row in rows:
-                photos.append({
-                    'id': str(row[0]),
-                    'title': row[1] or '',
-                    'content': row[2] or '',
-                    'media_type': row[3],
-                    'media_url': row[4] or '',
-                    'thumbnail_url': row[5] or '',
-                    'created_by': str(row[6]) if row[6] else 'Unknown',
-                    'created_at': row[7].isoformat() if row[7] else None,
-                    'likes_count': row[8] or 0,
-                    'shares_count': row[9] or 0,
-                    'views_count': row[10] or 0,
-                    'content_type': 'post'
-                })
 
-            # Get active advertisements
-            ads = []
-            cur.execute("""
-                SELECT id, title, description, media_type, media_url,
-                       link_url, start_date, end_date
-                FROM advertisements
-                WHERE status = 'active'
-                AND (end_date IS NULL OR end_date >= CURRENT_DATE)
-                ORDER BY created_at DESC
-            """)
             rows = cur.fetchall()
-            for row in rows:
-                ads.append({
-                    'id': str(row[0]),
-                    'title': row[1] or '',
-                    'description': row[2] or '',
-                    'media_type': row[3] or '',
-                    'media_url': row[4] or '',
-                    'link_url': row[5] or '',
-                    'start_date': row[6].isoformat() if row[6] else None,
-                    'end_date': row[7].isoformat() if row[7] else None
-                })
-
-            # Get upcoming meetings (limit 3 for home page)
-            meetings = []
-            cur.execute("""
-                SELECT m.id, m.title, m.description, m.zoom_link, m.meeting_date,
-                       m.meeting_time, m.duration_minutes, m.host_name
-                FROM meetings m
-                WHERE m.is_active = true
-                  AND m.meeting_date >= CURRENT_DATE
-                ORDER BY m.meeting_date ASC, m.meeting_time ASC
-                LIMIT 3
-            """)
-            rows = cur.fetchall()
-            for row in rows:
-                meetings.append({
-                    'id': str(row[0]),
-                    'title': row[1] or '',
-                    'description': row[2] or '',
-                    'zoom_link': row[3] or '',
-                    'meeting_date': row[4].isoformat() if row[4] else None,
-                    'meeting_time': row[5].strftime("%H:%M") if row[5] else None,
-                    'duration_minutes': row[6] or 60,
-                    'host_name': row[7] or ''
-                })
-
             cur.close()
+
+            # Organize results by data_type
+            videos = []
+            photos = []
+            ads = []
+            meetings = []
+
+            for row in rows:
+                data_type = row['data_type']
+
+                if data_type == 'video':
+                    videos.append({
+                        'id': str(row['id']),
+                        'title': row['title'] or '',
+                        'content': row['content'] or '',
+                        'media_type': row['media_type'],
+                        'media_url': row['media_url'] or '',
+                        'thumbnail_url': row['thumbnail_url'] or '',
+                        'created_by': str(row['created_by']) if row['created_by'] else 'Unknown',
+                        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+                        'likes_count': row['likes_count'] or 0,
+                        'shares_count': row['shares_count'] or 0,
+                        'views_count': row['views_count'] or 0,
+                        'content_type': 'post'
+                    })
+                elif data_type == 'photo':
+                    photos.append({
+                        'id': str(row['id']),
+                        'title': row['title'] or '',
+                        'content': row['content'] or '',
+                        'media_type': row['media_type'],
+                        'media_url': row['media_url'] or '',
+                        'thumbnail_url': row['thumbnail_url'] or '',
+                        'created_by': str(row['created_by']) if row['created_by'] else 'Unknown',
+                        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+                        'likes_count': row['likes_count'] or 0,
+                        'shares_count': row['shares_count'] or 0,
+                        'views_count': row['views_count'] or 0,
+                        'content_type': 'post'
+                    })
+                elif data_type == 'ad':
+                    ads.append({
+                        'id': str(row['id']),
+                        'title': row['title'] or '',
+                        'description': row['description'] or '',
+                        'media_type': row['media_type'] or '',
+                        'media_url': row['media_url'] or '',
+                        'link_url': row['link_url'] or '',
+                        'start_date': row['start_date'].isoformat() if row['start_date'] else None,
+                        'end_date': row['end_date'].isoformat() if row['end_date'] else None
+                    })
+                elif data_type == 'meeting':
+                    meetings.append({
+                        'id': str(row['id']),
+                        'title': row['title'] or '',
+                        'description': row['description'] or '',
+                        'zoom_link': row['zoom_link'] or '',
+                        'meeting_date': row['meeting_date'].isoformat() if row['meeting_date'] else None,
+                        'meeting_time': row['meeting_time'].strftime("%H:%M") if row['meeting_time'] else None,
+                        'duration_minutes': row['duration_minutes'] or 60,
+                        'host_name': row['host_name'] or ''
+                    })
 
             return jsonify({
                 'success': True,
@@ -348,5 +384,5 @@ def get_home_data():
         finally:
             return_db_connection(conn)
 
-    except Exception as e:
+    except Exception:
         return jsonify({'error': 'Failed to fetch home data'}), 500

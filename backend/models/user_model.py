@@ -6,7 +6,7 @@ from utils.db import get_db_connection, return_db_connection
 from psycopg2.extras import RealDictCursor
 
 
-def create_user(full_name, email, username, password_hash, role='customer', amount=0.00):
+def create_user(full_name, email, username, password_hash, role='customer', amount=0.00, package_id=None):
     """
     Create a new user with optional team activation
     Team activation is handled here ONLY - no duplicate calls
@@ -44,7 +44,9 @@ def create_user(full_name, email, username, password_hash, role='customer', amou
 
             success, message, data = TeamService.activate_user(
                 str(user_id),
-                Decimal(str(amount))
+                Decimal(str(amount)),
+                None,
+                package_id
             )
             # Log activation result but don't fail user creation
             if not success:
@@ -88,7 +90,7 @@ def get_user_by_username(username):
 
 
 def get_all_users():
-    """Get all users with team-relevant fields"""
+    """Get all users with team-relevant fields (legacy - use get_users_paginated for large datasets)"""
     conn = get_db_connection()
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -102,6 +104,87 @@ def get_all_users():
         users = cur.fetchall()
         cur.close()
         return users
+    finally:
+        return_db_connection(conn)
+
+
+def get_users_paginated(page=1, limit=50, search=None, role_filter=None, status_filter=None):
+    """
+    Get users with pagination and optional filters
+    Returns (users, total_count) tuple
+
+    Args:
+        page: Page number (1-indexed)
+        limit: Items per page (max 100)
+        search: Search term for name/email/username
+        role_filter: Filter by role ('admin', 'customer')
+        status_filter: Filter by active status ('active', 'inactive', 'mlm_active')
+
+    SECURITY: Uses parameterized queries exclusively - no string interpolation
+    """
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Build WHERE clause with parameterized queries only
+        # SECURITY: All conditions use %s placeholders - no f-strings
+        where_conditions = []
+        params = []
+
+        if search:
+            where_conditions.append("""
+                (LOWER(full_name) LIKE LOWER(%s) OR
+                 LOWER(email) LIKE LOWER(%s) OR
+                 LOWER(username) LIKE LOWER(%s))
+            """)
+            search_term = f"%{search}%"
+            params.extend([search_term, search_term, search_term])
+
+        # SECURITY: role_filter is validated against whitelist before use
+        if role_filter and role_filter in ('admin', 'customer'):
+            where_conditions.append("role = %s")
+            params.append(role_filter)
+
+        # SECURITY: status_filter values are hardcoded - no user input in SQL
+        if status_filter:
+            if status_filter == 'active':
+                where_conditions.append("is_active = true")
+            elif status_filter == 'inactive':
+                where_conditions.append("is_active = false")
+            elif status_filter == 'mlm_active':
+                where_conditions.append("is_mlm_active = true")
+
+        # Build complete query with WHERE clause
+        # SECURITY: Using static SQL strings, only values are parameterized
+        base_select = """
+            SELECT id, full_name, username, email, role, created_at, is_active,
+                   is_mlm_active as is_active_member, total_earnings,
+                   activation_date, amount, commission_received_count
+            FROM users
+        """
+
+        if where_conditions:
+            where_clause = "WHERE " + " AND ".join(where_conditions)
+        else:
+            where_clause = ""
+
+        # Get total count with same filters
+        count_params = params.copy()
+        cur.execute(f"SELECT COUNT(*) FROM users {where_clause}", count_params)
+        total_count = cur.fetchone()['count']
+
+        # Calculate offset
+        offset = (page - 1) * limit
+
+        # Get paginated results
+        # SECURITY: LIMIT and OFFSET use %s placeholders
+        query = f"{base_select} {where_clause} ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        cur.execute(query, params)
+        users = cur.fetchall()
+        cur.close()
+
+        return users, total_count
     finally:
         return_db_connection(conn)
 
@@ -134,6 +217,8 @@ def update_user(user_id, full_name=None, email=None, username=None, role=None, a
             return None, "User not found"
 
         # Build dynamic update query
+        # SECURITY: Field names are hardcoded below (not from user input)
+        # Values use parameterized queries (%s) for SQL injection protection
         update_fields = []
         values = []
 

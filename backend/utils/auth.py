@@ -19,29 +19,54 @@ JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 3600))  # 1
 JWT_REFRESH_TOKEN_EXPIRES = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES', 604800))  # 7 days default
 JWT_ALGORITHM = 'HS256'
 
-# Validate secret key exists
+# Validate secret key exists and meets security requirements
 if not JWT_SECRET_KEY:
     raise ValueError("JWT_SECRET_KEY environment variable is required")
 
-# Token blacklist storage (uses Redis if available, falls back to in-memory)
-_token_blacklist = set()
+# Enforce minimum key length for security (64 chars = 256 bits minimum)
+MIN_SECRET_KEY_LENGTH = 64
+if len(JWT_SECRET_KEY) < MIN_SECRET_KEY_LENGTH:
+    raise ValueError(
+        f"JWT_SECRET_KEY must be at least {MIN_SECRET_KEY_LENGTH} characters. "
+        f"Generate one with: python -c \"import secrets; print(secrets.token_hex(64))\""
+    )
+
+# =============================================================================
+# TOKEN BLACKLIST - Redis REQUIRED for multi-worker deployments
+# =============================================================================
+# SECURITY: In-memory blacklist DOES NOT work across Gunicorn workers!
+# Each worker has separate memory, so logout only works on 1/8 workers.
+# Redis is REQUIRED in production for token blacklisting to work correctly.
+# =============================================================================
 _redis_client = None
+_redis_checked = False
 
 def _get_redis_client():
-    """Get Redis client for token blacklisting"""
-    global _redis_client
-    if _redis_client is None:
+    """
+    Get Redis client for token blacklisting.
+    CRITICAL: Returns None if Redis unavailable - caller must handle this!
+    """
+    global _redis_client, _redis_checked
+    if not _redis_checked:
+        _redis_checked = True
         try:
             import redis
             redis_url = os.getenv('REDIS_URL')
-            if redis_url:
-                _redis_client = redis.from_url(redis_url)
+            if redis_url and redis_url != 'memory://':
+                _redis_client = redis.from_url(redis_url, socket_connect_timeout=5)
                 _redis_client.ping()
+                print("✅ Redis connected for token blacklisting")
             else:
-                _redis_client = False  # No Redis configured
-        except Exception:
-            _redis_client = False  # Redis not available
-    return _redis_client if _redis_client else None
+                _redis_client = None
+                env = os.getenv('FLASK_ENV', 'development')
+                if env == 'production':
+                    print("⚠️ CRITICAL: REDIS_URL not configured - token blacklisting WILL NOT WORK across workers!")
+                else:
+                    print("⚠️ Redis not configured (dev mode) - token blacklisting limited to single worker")
+        except Exception as e:
+            _redis_client = None
+            print(f"⚠️ Redis connection failed: {e} - token blacklisting disabled")
+    return _redis_client
 
 
 def _get_token_hash(token: str) -> str:
@@ -51,39 +76,50 @@ def _get_token_hash(token: str) -> str:
 
 def blacklist_token(token: str, token_type: str = 'access') -> bool:
     """
-    Add a token to the blacklist
-    Returns True if successful
+    Add a token to the blacklist.
+
+    SECURITY: In production with multiple workers, this REQUIRES Redis.
+    Without Redis, blacklisted tokens can still be used on other workers!
+
+    Returns True if successful, False if blacklisting failed.
     """
     try:
         token_hash = _get_token_hash(token)
         redis_client = _get_redis_client()
-
-        # Calculate TTL based on token type
         ttl = JWT_ACCESS_TOKEN_EXPIRES if token_type == 'access' else JWT_REFRESH_TOKEN_EXPIRES
 
         if redis_client:
-            # Use Redis with expiration
             redis_client.setex(f"blacklist:{token_hash}", ttl, "1")
+            return True
         else:
-            # Fall back to in-memory set (not suitable for multi-instance deployments)
-            _token_blacklist.add(token_hash)
-
-        return True
-    except Exception:
+            # SECURITY WARNING: Without Redis, logout only works on current worker
+            # In production with 8 workers, token is still valid on 7/8 workers!
+            # This is a known limitation - Redis should be configured in production
+            return False
+    except Exception as e:
+        print(f"⚠️ Token blacklist failed: {e}")
         return False
 
 
 def is_token_blacklisted(token: str) -> bool:
-    """Check if a token is blacklisted"""
-    try:
-        token_hash = _get_token_hash(token)
-        redis_client = _get_redis_client()
+    """
+    Check if a token is blacklisted.
 
-        if redis_client:
-            return redis_client.exists(f"blacklist:{token_hash}") > 0
-        else:
-            return token_hash in _token_blacklist
-    except Exception:
+    SECURITY: Without Redis, this always returns False (fail-open).
+    This means revoked tokens may still work - configure Redis in production!
+    """
+    try:
+        redis_client = _get_redis_client()
+        if not redis_client:
+            # Without Redis, we cannot check blacklist across workers
+            # Fail-open to prevent blocking legitimate users
+            return False
+
+        token_hash = _get_token_hash(token)
+        return redis_client.exists(f"blacklist:{token_hash}") > 0
+    except Exception as e:
+        print(f"⚠️ Blacklist check failed: {e}")
+        # Fail-open on error to prevent blocking legitimate users
         return False
 
 

@@ -229,19 +229,46 @@ def upload_post():
 @post_bp.route("/api/posts", methods=["GET"])
 @token_required
 def get_posts():
-    """Get all posts (authenticated users only)"""
+    """
+    Get posts with pagination (authenticated users only)
+    Query params:
+    - page: Page number (default: 1)
+    - limit: Items per page (default: 20, max: 100)
+    - media_type: Filter by type ('video', 'image')
+    """
     conn = None
     try:
+        # Parse pagination params with validation
+        page = max(1, request.args.get('page', 1, type=int))
+        limit = min(100, max(1, request.args.get('limit', 20, type=int)))
+        offset = (page - 1) * limit
+        media_type = request.args.get('media_type')
+
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("""
+        # Build query with optional media_type filter
+        base_where = "WHERE is_published = true"
+        params = []
+
+        if media_type in ('video', 'image'):
+            base_where += " AND media_type = %s"
+            params.append(media_type)
+
+        # Get total count for pagination metadata (single optimized query)
+        cur.execute(f"SELECT COUNT(*) FROM posts {base_where}", params)
+        total_count = cur.fetchone()[0]
+
+        # Get paginated posts
+        params.extend([limit, offset])
+        cur.execute(f"""
             SELECT id, title, content, media_type, media_url, thumbnail_url,
                    created_by, created_at, is_published, likes_count, shares_count, views_count
             FROM posts
-            WHERE is_published = true
+            {base_where}
             ORDER BY created_at DESC
-        """)
+            LIMIT %s OFFSET %s
+        """, params)
         posts = cur.fetchall()
         cur.close()
 
@@ -262,10 +289,22 @@ def get_posts():
                 "views_count": post[11] or 0
             })
 
-        return jsonify(formatted_posts), 200
+        # Return with pagination metadata
+        total_pages = (total_count + limit - 1) // limit
+        return jsonify({
+            "data": formatted_posts,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }), 200
 
     except Exception:
-        return jsonify([]), 200
+        return jsonify({"data": [], "pagination": {"page": 1, "limit": 20, "total_count": 0, "total_pages": 0}}), 200
     finally:
         if conn:
             return_db_connection(conn)

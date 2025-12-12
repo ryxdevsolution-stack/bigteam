@@ -32,6 +32,22 @@ class TeamService:
     """
 
     @staticmethod
+    def _parse_settings_rows(settings_rows) -> Dict[str, any]:
+        """Parse settings rows into typed dictionary (DRY helper method)"""
+        settings = {}
+        for key, value in settings_rows:
+            # Convert to appropriate types
+            if key == 'activation_amount':
+                settings[key] = Decimal(value)
+            elif key == 'commission_rate':
+                settings[key] = Decimal(value)
+            elif key == 'commission_limit':
+                settings[key] = int(value)
+            else:
+                settings[key] = value
+        return settings
+
+    @staticmethod
     def get_settings() -> Dict[str, any]:
         """Get team settings from database (no hardcoding)"""
         conn = get_db_connection()
@@ -40,21 +56,7 @@ class TeamService:
             cur.execute("SELECT setting_key, setting_value FROM mlm_settings")
             rows = cur.fetchall()
             cur.close()
-
-            settings = {}
-            for row in rows:
-                key, value = row
-                # Convert to appropriate types
-                if key == 'activation_amount':
-                    settings[key] = Decimal(value)
-                elif key == 'commission_rate':
-                    settings[key] = Decimal(value)
-                elif key == 'commission_limit':
-                    settings[key] = int(value)
-                else:
-                    settings[key] = value
-
-            return settings
+            return TeamService._parse_settings_rows(rows)
         finally:
             return_db_connection(conn)
 
@@ -195,16 +197,7 @@ class TeamService:
             # Get settings inline (avoid opening new connection)
             cur.execute("SELECT setting_key, setting_value FROM mlm_settings")
             settings_rows = cur.fetchall()
-            settings = {}
-            for key, value in settings_rows:
-                if key == 'activation_amount':
-                    settings[key] = Decimal(value)
-                elif key == 'commission_rate':
-                    settings[key] = Decimal(value)
-                elif key == 'commission_limit':
-                    settings[key] = int(value)
-                else:
-                    settings[key] = value
+            settings = TeamService._parse_settings_rows(settings_rows)
 
             # Get package details if package_id provided
             package = None
@@ -282,7 +275,9 @@ class TeamService:
             # CORRECT LOGIC: Pay commission to LAST 2 active users in the chain
             commission_limit = settings.get('commission_limit', 2)
 
-            # Find the last 2 active users who have received < commission_limit commissions
+            # SECURITY: Find and LOCK the last N active users who will receive commissions
+            # FOR UPDATE prevents race conditions where multiple concurrent activations
+            # could pay the same user more than their commission limit
             cur.execute("""
                 SELECT mc.user_id, mc.position, mc.is_active,
                        u.username, u.email, u.commission_received_count
@@ -290,16 +285,26 @@ class TeamService:
                 JOIN users u ON mc.user_id = u.id
                 WHERE mc.is_active = true AND u.commission_received_count < %s
                 ORDER BY mc.position DESC
-                LIMIT 2
-            """, (commission_limit,))
+                LIMIT %s
+                FOR UPDATE OF u
+            """, (commission_limit, commission_limit))
 
             receiver_rows = cur.fetchall()
 
             # Calculate commission based on package or fallback to settings
             if package:
+                # SECURITY: Validate commission percentage is within acceptable range
+                if package['commission_percentage'] < Decimal('0') or package['commission_percentage'] > Decimal('100'):
+                    return False, "Invalid package commission percentage (must be 0-100)", {}
+
                 # Use package-specific commission percentage
                 commission_rate = package['commission_percentage'] / Decimal('100')  # Convert 15 to 0.15
                 commission_amount = package['amount'] * commission_rate
+
+                # SECURITY: Validate commission amount against maximum threshold
+                MAX_COMMISSION_AMOUNT = Decimal('100000')  # 1 lakh rupees per transaction
+                if commission_amount > MAX_COMMISSION_AMOUNT:
+                    return False, f"Commission amount exceeds maximum allowed ({MAX_COMMISSION_AMOUNT})", {}
             else:
                 # Fallback to mlm_settings (backward compatibility)
                 commission_rate = settings.get('commission_rate', Decimal('0.15'))

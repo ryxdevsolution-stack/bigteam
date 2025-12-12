@@ -9,6 +9,8 @@ import { User } from '../types/user'
 import api, { cacheUtils } from '../services/api'
 import { DashboardStats } from '../services/userService'
 import { TreeData, Commission } from '../services/teamService'
+import { Meeting } from '../services/meetingService'
+import { Package } from '../services/packageService'
 
 export interface HomeData {
   videos: Post[]
@@ -100,6 +102,24 @@ interface DataContextType {
   homeDataError: string | null
   fetchHomeData: (force?: boolean) => Promise<void>
 
+  // Meetings (admin)
+  meetings: Meeting[]
+  meetingsLoading: boolean
+  meetingsError: string | null
+  fetchMeetings: (force?: boolean) => Promise<void>
+  addMeeting: (meeting: Meeting) => void
+  updateMeeting: (meetingId: string, updates: Partial<Meeting>) => void
+  deleteMeeting: (meetingId: string) => void
+
+  // Packages (admin)
+  packages: Package[]
+  packagesLoading: boolean
+  packagesError: string | null
+  fetchPackages: (force?: boolean) => Promise<void>
+  addPackage: (pkg: Package) => void
+  updatePackage: (packageId: string, updates: Partial<Package>) => void
+  deletePackage: (packageId: string) => void
+
   // Clear all cache
   clearCache: () => void
 }
@@ -158,6 +178,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [homeDataError, setHomeDataError] = useState<string | null>(null)
   const homeDataCache = useRef<CacheEntry<HomeData> | null>(null)
   const homeDataPromiseRef = useRef<Promise<void> | null>(null)
+
+  // Meetings state (admin - static data, longer cache)
+  const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [meetingsLoading, setMeetingsLoading] = useState(false)
+  const [meetingsError, setMeetingsError] = useState<string | null>(null)
+  const meetingsCache = useRef<CacheEntry<Meeting[]> | null>(null)
+  const meetingsPromiseRef = useRef<Promise<void> | null>(null)
+
+  // Packages state (admin - static data, longer cache)
+  const [packages, setPackages] = useState<Package[]>([])
+  const [packagesLoading, setPackagesLoading] = useState(false)
+  const [packagesError, setPackagesError] = useState<string | null>(null)
+  const packagesCache = useRef<CacheEntry<Package[]> | null>(null)
+  const packagesPromiseRef = useRef<Promise<void> | null>(null)
 
   // Helper to check if cache is valid
   const isCacheValid = <T,>(cache: CacheEntry<T> | null, userId?: string): boolean => {
@@ -443,6 +477,136 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return fetchPromise
   }, [])
 
+  // === MEETINGS MANAGEMENT (ADMIN) ===
+  const fetchMeetings = useCallback(async (force: boolean = false) => {
+    if (!force && isCacheValid(meetingsCache.current)) {
+      return
+    }
+
+    if (meetingsPromiseRef.current && !force) {
+      return meetingsPromiseRef.current
+    }
+
+    const fetchPromise = (async () => {
+      setMeetingsLoading(true)
+      setMeetingsError(null)
+      try {
+        const response = await api.get('/api/meetings/all')
+        const data = response.data
+        setMeetings(data)
+        meetingsCache.current = { data, timestamp: Date.now() }
+      } catch (error: any) {
+        setMeetingsError(error.response?.data?.error || error.message || 'Failed to fetch meetings')
+        setMeetings([])
+      } finally {
+        setMeetingsLoading(false)
+        meetingsPromiseRef.current = null
+      }
+    })()
+
+    meetingsPromiseRef.current = fetchPromise
+    return fetchPromise
+  }, [])
+
+  const addMeeting = useCallback((meeting: Meeting) => {
+    setMeetings(prev => [meeting, ...prev])
+    if (meetingsCache.current) {
+      meetingsCache.current = {
+        data: [meeting, ...meetingsCache.current.data],
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
+  const updateMeeting = useCallback((meetingId: string, updates: Partial<Meeting>) => {
+    setMeetings(prev => prev.map(m =>
+      m.id === meetingId ? { ...m, ...updates } : m
+    ))
+    if (meetingsCache.current) {
+      meetingsCache.current = {
+        data: meetingsCache.current.data.map(m =>
+          m.id === meetingId ? { ...m, ...updates } : m
+        ),
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
+  const deleteMeeting = useCallback((meetingId: string) => {
+    setMeetings(prev => prev.filter(m => m.id !== meetingId))
+    if (meetingsCache.current) {
+      meetingsCache.current = {
+        data: meetingsCache.current.data.filter(m => m.id !== meetingId),
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
+  // === PACKAGES MANAGEMENT (ADMIN) ===
+  const fetchPackages = useCallback(async (force: boolean = false) => {
+    if (!force && isCacheValid(packagesCache.current)) {
+      return
+    }
+
+    if (packagesPromiseRef.current && !force) {
+      return packagesPromiseRef.current
+    }
+
+    const fetchPromise = (async () => {
+      setPackagesLoading(true)
+      setPackagesError(null)
+      try {
+        const response = await api.get('/api/admin/packages')
+        const data = response.data
+        setPackages(data)
+        packagesCache.current = { data, timestamp: Date.now() }
+      } catch (error: any) {
+        setPackagesError(error.response?.data?.error || error.message || 'Failed to fetch packages')
+        setPackages([])
+      } finally {
+        setPackagesLoading(false)
+        packagesPromiseRef.current = null
+      }
+    })()
+
+    packagesPromiseRef.current = fetchPromise
+    return fetchPromise
+  }, [])
+
+  const addPackage = useCallback((pkg: Package) => {
+    setPackages(prev => [pkg, ...prev])
+    if (packagesCache.current) {
+      packagesCache.current = {
+        data: [pkg, ...packagesCache.current.data],
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
+  const updatePackage = useCallback((packageId: string, updates: Partial<Package>) => {
+    setPackages(prev => prev.map(p =>
+      p.id === packageId ? { ...p, ...updates } : p
+    ))
+    if (packagesCache.current) {
+      packagesCache.current = {
+        data: packagesCache.current.data.map(p =>
+          p.id === packageId ? { ...p, ...updates } : p
+        ),
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
+  const deletePackage = useCallback((packageId: string) => {
+    setPackages(prev => prev.filter(p => p.id !== packageId))
+    if (packagesCache.current) {
+      packagesCache.current = {
+        data: packagesCache.current.data.filter(p => p.id !== packageId),
+        timestamp: Date.now()
+      }
+    }
+  }, [])
+
   // Clear all cache (both local refs and API cache)
   const clearCache = useCallback(() => {
     postsCache.current = null
@@ -452,6 +616,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     commissionsCache.current = null
     userProfileCache.current = null
     homeDataCache.current = null
+    meetingsCache.current = null
+    packagesCache.current = null
     // Also clear the API-level cache
     cacheUtils.clearAll()
   }, [])
@@ -506,6 +672,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     homeDataLoading,
     homeDataError,
     fetchHomeData,
+
+    // Meetings (admin)
+    meetings,
+    meetingsLoading,
+    meetingsError,
+    fetchMeetings,
+    addMeeting,
+    updateMeeting,
+    deleteMeeting,
+
+    // Packages (admin)
+    packages,
+    packagesLoading,
+    packagesError,
+    fetchPackages,
+    addPackage,
+    updatePackage,
+    deletePackage,
 
     // Cache control
     clearCache,

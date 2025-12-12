@@ -109,6 +109,7 @@ def get_tree(user_id):
 
 
 @team_bp.route('/chain', methods=['GET'])
+@limiter.limit("10 per minute")
 @admin_required
 def get_chain():
     """Get current team chain status (admin only - sensitive data)"""
@@ -177,11 +178,13 @@ def activate():
 
 
 @team_bp.route('/chain-with-commissions', methods=['GET'])
+@limiter.limit("10 per minute")
 @admin_required
 def get_chain_with_commissions():
     """
     Get chain with commission relationships (admin only - sensitive financial data)
     OPTIMIZED: Uses only 3 queries instead of N+2 queries (was causing 9+ second load times)
+    SECURITY: Rate limited to prevent data exfiltration
     """
     try:
         from utils.db import get_db_connection, return_db_connection
@@ -286,9 +289,10 @@ def get_chain_with_commissions():
 
 
 @team_bp.route('/stats/global', methods=['GET'])
+@limiter.limit("20 per minute")
 @admin_required
 def get_global_stats():
-    """Get global team statistics (admin only)"""
+    """Get global team statistics (admin only) - Rate limited"""
     try:
         from utils.db import get_db_connection, return_db_connection
         conn = get_db_connection()

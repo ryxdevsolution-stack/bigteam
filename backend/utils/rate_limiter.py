@@ -1,19 +1,33 @@
 """
 Rate Limiter Configuration - Protects endpoints from brute force and DoS attacks
 Uses Flask-Limiter with Redis backend for distributed rate limiting
+
+IMPORTANT: Redis is REQUIRED in production for rate limiting to work across workers.
+Without Redis, each of the 8 workers has independent counters, effectively
+multiplying rate limits by 8 (5/min becomes 40/min total).
 """
 import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Redis URL for distributed rate limiting (falls back to memory if not available)
-REDIS_URL = os.getenv('REDIS_URL', 'memory://')
+# Redis URL for distributed rate limiting
+# CRITICAL: In production, this MUST be a real Redis URL, not 'memory://'
+REDIS_URL = os.getenv('REDIS_URL')
+
+if not REDIS_URL:
+    env = os.getenv('FLASK_ENV', 'development')
+    if env == 'production':
+        print("⚠️ CRITICAL: REDIS_URL not set in production - rate limiting will NOT work correctly!")
+    REDIS_URL = 'memory://'
 
 # Initialize limiter (to be attached to Flask app in app.py)
+# Increased limits to support 1000+ concurrent users:
+# - 600/minute = 10 requests/second per IP (reasonable for normal browsing)
+# - 100/second global burst allows for peak traffic
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=REDIS_URL,
-    default_limits=["200 per minute", "50 per second"],
+    default_limits=["600 per minute", "100 per second"],
     strategy="fixed-window"
 )
 

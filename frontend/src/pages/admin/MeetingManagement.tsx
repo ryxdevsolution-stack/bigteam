@@ -17,15 +17,17 @@ import {
 import {
   Meeting,
   CreateMeetingData,
-  getAllMeetings,
   createMeeting,
-  updateMeeting,
-  deleteMeeting
+  updateMeeting as updateMeetingAPI,
+  deleteMeeting as deleteMeetingAPI
 } from '../../services/meetingService'
+import { useData } from '../../contexts/DataContext'
 
 const MeetingManagement: React.FC = () => {
-  const [meetings, setMeetings] = useState<Meeting[]>([])
-  const [loading, setLoading] = useState(true)
+  // Use DataContext for meetings data (with caching and deduplication)
+  const { meetings, meetingsLoading, fetchMeetings, addMeeting, updateMeeting: updateMeetingContext, deleteMeeting: deleteMeetingContext } = useData()
+
+  // Local UI state
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null)
@@ -43,22 +45,10 @@ const MeetingManagement: React.FC = () => {
     host_name: ''
   })
 
-  const fetchMeetings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await getAllMeetings()
-      setMeetings(data)
-    } catch (err) {
-      setError('Failed to load meetings')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Fetch meetings on mount (uses cache if available)
   useEffect(() => {
     fetchMeetings()
-  }, [])
+  }, [fetchMeetings])
 
   const resetForm = () => {
     setFormData({
@@ -102,13 +92,11 @@ const MeetingManagement: React.FC = () => {
 
     try {
       if (editingMeeting) {
-        const result = await updateMeeting(editingMeeting.id, formData)
-        setMeetings(prev =>
-          prev.map(m => (m.id === editingMeeting.id ? result.meeting : m))
-        )
+        const result = await updateMeetingAPI(editingMeeting.id, formData)
+        updateMeetingContext(editingMeeting.id, result.meeting)
       } else {
         const result = await createMeeting(formData)
-        setMeetings(prev => [result.meeting, ...prev])
+        addMeeting(result.meeting)
       }
       handleCloseModal()
     } catch (err) {
@@ -120,8 +108,8 @@ const MeetingManagement: React.FC = () => {
 
   const handleDelete = async (meetingId: string) => {
     try {
-      await deleteMeeting(meetingId)
-      setMeetings(prev => prev.filter(m => m.id !== meetingId))
+      await deleteMeetingAPI(meetingId)
+      deleteMeetingContext(meetingId)
       setDeleteConfirm(null)
     } catch (err) {
       setError('Failed to delete meeting')
@@ -130,10 +118,8 @@ const MeetingManagement: React.FC = () => {
 
   const handleToggleActive = async (meeting: Meeting) => {
     try {
-      const result = await updateMeeting(meeting.id, { is_active: !meeting.is_active })
-      setMeetings(prev =>
-        prev.map(m => (m.id === meeting.id ? result.meeting : m))
-      )
+      const result = await updateMeetingAPI(meeting.id, { is_active: !meeting.is_active })
+      updateMeetingContext(meeting.id, result.meeting)
     } catch (err) {
       setError('Failed to update meeting status')
     }
@@ -239,7 +225,7 @@ const MeetingManagement: React.FC = () => {
       )}
 
       {/* Meetings List */}
-      {loading ? (
+      {meetingsLoading ? (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>

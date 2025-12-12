@@ -8,6 +8,7 @@ export interface CreateUserPayload {
   password: string
   role?: 'customer' | 'admin'
   amount?: number
+  package_id?: string
 }
 
 export interface DashboardStats {

@@ -19,10 +19,13 @@ import packageService, {
   CreatePackageData,
   UpdatePackageData
 } from '../../services/packageService'
+import { useData } from '../../contexts/DataContext'
 
 const PackageManagement: React.FC = () => {
-  const [packages, setPackages] = useState<PackageType[]>([])
-  const [loading, setLoading] = useState(true)
+  // Use DataContext for packages data (with caching and deduplication)
+  const { packages, packagesLoading, fetchPackages, addPackage, updatePackage: updatePackageContext, deletePackage: deletePackageContext } = useData()
+
+  // Local UI state
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingPackage, setEditingPackage] = useState<PackageType | null>(null)
@@ -37,22 +40,10 @@ const PackageManagement: React.FC = () => {
     description: ''
   })
 
-  const fetchPackages = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await packageService.getAllPackages(false)
-      setPackages(data)
-    } catch {
-      setError('Failed to load packages')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Fetch packages on mount (uses cache if available)
   useEffect(() => {
     fetchPackages()
-  }, [])
+  }, [fetchPackages])
 
   const resetForm = () => {
     setFormData({
@@ -97,12 +88,10 @@ const PackageManagement: React.FC = () => {
           description: formData.description
         }
         const result = await packageService.updatePackage(editingPackage.id, updateData)
-        setPackages(prev =>
-          prev.map(p => (p.id === editingPackage.id ? result : p))
-        )
+        updatePackageContext(editingPackage.id, result)
       } else {
         const result = await packageService.createPackage(formData)
-        setPackages(prev => [...prev, result].sort((a, b) => a.amount - b.amount))
+        addPackage(result)
       }
       handleCloseModal()
     } catch {
@@ -115,7 +104,7 @@ const PackageManagement: React.FC = () => {
   const handleDelete = async (packageId: string) => {
     try {
       await packageService.deletePackage(packageId)
-      setPackages(prev => prev.filter(p => p.id !== packageId))
+      deletePackageContext(packageId)
       setDeleteConfirm(null)
     } catch {
       setError('Failed to delete package')
@@ -125,9 +114,7 @@ const PackageManagement: React.FC = () => {
   const handleToggleActive = async (pkg: PackageType) => {
     try {
       const result = await packageService.togglePackageStatus(pkg.id)
-      setPackages(prev =>
-        prev.map(p => (p.id === pkg.id ? result : p))
-      )
+      updatePackageContext(pkg.id, result)
     } catch {
       setError('Failed to update package status')
     }
@@ -219,7 +206,7 @@ const PackageManagement: React.FC = () => {
       )}
 
       {/* Packages List */}
-      {loading ? (
+      {packagesLoading ? (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-accent-orange" />
         </div>

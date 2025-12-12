@@ -35,11 +35,15 @@ frontend/.env.local
 frontend/.env.*.local
 frontend/*.log
 
-# Environment Variables
+# Environment Variables - CRITICAL: Never commit secrets!
 .env
 .env.local
 .env.*.local
 *.env
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.development
 
 # IDE
 .vscode/

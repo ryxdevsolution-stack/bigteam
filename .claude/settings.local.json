@@ -28,7 +28,10 @@
       "Bash(./venv_new/bin/python:*)",
       "Bash(npm i:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "SlashCommand(/security-scan)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

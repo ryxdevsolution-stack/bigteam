@@ -4,12 +4,12 @@ Implements JWT-based authentication with role-based access control
 """
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
-from models.user_model import create_user, get_user_by_email, get_all_users, update_user, delete_user, get_user_by_id
+from models.user_model import create_user, get_user_by_email, get_all_users, get_users_paginated, update_user, delete_user, get_user_by_id
 from services.team_service import TeamService
 from utils.auth import generate_tokens, verify_token, refresh_access_token, token_required, admin_required, get_current_user_id, blacklist_token, get_token_from_header
 from utils.validators import (
     validate_email, validate_username, validate_password, validate_full_name,
-    validate_amount, validate_role, sanitize_string
+    validate_amount, validate_role, sanitize_string, validate_uuid
 )
 from utils.rate_limiter import limiter
 from decimal import Decimal
@@ -60,6 +60,14 @@ def register():
             return jsonify({'error': error}), 400
         amount = validated_amount
 
+    # Validate package_id if provided
+    package_id = None
+    if data.get('package_id'):
+        is_valid, error = validate_uuid(data.get('package_id'))
+        if not is_valid:
+            return jsonify({'error': 'Invalid package ID'}), 400
+        package_id = data.get('package_id')
+
     # Hash the password
     hashed_pw = bcrypt.generate_password_hash(data['password']).decode('utf-8')
 
@@ -70,7 +78,8 @@ def register():
         username=username,
         password_hash=hashed_pw,
         role=role,
-        amount=float(amount)
+        amount=float(amount),
+        package_id=package_id
     )
 
     if error:
@@ -250,9 +259,51 @@ def check_username():
 @auth_bp.route('/admin/users', methods=['GET'])
 @admin_required
 def get_users():
-    """Get all users (admin only)"""
+    """
+    Get users with pagination and filters (admin only)
+    Query params:
+    - page: Page number (default: 1)
+    - limit: Items per page (default: 50, max: 100)
+    - search: Search term for name/email/username
+    - role: Filter by role ('admin', 'customer')
+    - status: Filter by status ('active', 'inactive', 'mlm_active')
+    """
     try:
-        users = get_all_users()
+        # Parse pagination params with validation
+        try:
+            page_raw = request.args.get('page', 1, type=int)
+            limit_raw = request.args.get('limit', 50, type=int)
+
+            # Validate and cap pagination params to prevent DoS
+            page = max(1, min(10000, page_raw)) if page_raw else 1
+            limit = max(1, min(100, limit_raw)) if limit_raw else 50
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid pagination parameters'}), 400
+
+        # Parse and validate filter params
+        search = request.args.get('search', '').strip() or None
+        role_filter = request.args.get('role', '').strip() or None
+        status_filter = request.args.get('status', '').strip() or None
+
+        # Validate role filter against whitelist
+        if role_filter and role_filter not in ('admin', 'customer'):
+            role_filter = None
+
+        # Validate status filter against whitelist
+        if status_filter and status_filter not in ('active', 'inactive', 'mlm_active'):
+            status_filter = None
+
+        # Sanitize search input
+        if search:
+            search = sanitize_string(search, max_length=100)
+
+        users, total_count = get_users_paginated(
+            page=page,
+            limit=limit,
+            search=search,
+            role_filter=role_filter,
+            status_filter=status_filter
+        )
 
         formatted_users = []
         for user in users:
@@ -271,7 +322,20 @@ def get_users():
                 'commission_received_count': user.get('commission_received_count', 0)
             })
 
-        return jsonify(formatted_users), 200
+        # Calculate pagination metadata
+        total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
+
+        return jsonify({
+            'data': formatted_users,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total_count': total_count,
+                'total_pages': total_pages,
+                'has_next': page < total_pages,
+                'has_prev': page > 1
+            }
+        }), 200
     except Exception:
         return jsonify({'error': 'Failed to fetch users'}), 500
 
@@ -362,14 +426,38 @@ def update_user_endpoint(user_id):
 
 
 @auth_bp.route('/admin/users/<user_id>', methods=['DELETE'])
+@limiter.limit("5 per minute")
 @admin_required
 def delete_user_endpoint(user_id):
-    """Delete user (admin only)"""
+    """Delete user (admin only) with business logic validation"""
     try:
+        # Validate user_id format
+        is_valid, error = validate_uuid(user_id)
+        if not is_valid:
+            return jsonify({'error': error}), 400
+
         # Prevent admin from deleting themselves
         current_user_id = get_current_user_id()
         if str(current_user_id) == str(user_id):
             return jsonify({'error': 'Cannot delete your own account'}), 400
+
+        # SECURITY: Check business logic constraints before deletion
+        # Check if user exists and get their data
+        user = get_user_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Prevent deleting users with pending balance (financial integrity)
+        if user.get('pending_balance', 0) > 0:
+            return jsonify({'error': 'Cannot delete user with pending balance. Please settle balance first.'}), 400
+
+        # Check if user has active team members (MLM chain integrity)
+        team_members = TeamService.get_user_team_members(user_id)
+        if team_members and len(team_members) > 0:
+            return jsonify({
+                'error': 'Cannot delete user with active team members. Reassign or remove team members first.',
+                'team_member_count': len(team_members)
+            }), 400
 
         success, error = delete_user(user_id)
 

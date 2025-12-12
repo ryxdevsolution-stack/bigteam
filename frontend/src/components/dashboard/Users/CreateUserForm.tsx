@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   User,
@@ -11,9 +11,11 @@ import {
   AlertCircle,
   Check,
   X,
-  DollarSign
+  DollarSign,
+  Package
 } from 'lucide-react'
 import { CreateUserPayload, userService } from '../../../services/userService'
+import packageService, { Package as PackageType } from '../../../services/packageService'
 import api from '../../../services/api'
 
 interface CreateUserFormProps {
@@ -35,7 +37,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     username: '',
     password: '',
     role: 'customer',
-    amount: 1000
+    amount: 0
   })
 
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -47,6 +49,30 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [chainPosition, setChainPosition] = useState<number | null>(null)
   const [commissionReceivers, setCommissionReceivers] = useState<Array<{ position: number; username: string }>>([])
+  const [packages, setPackages] = useState<PackageType[]>([])
+  const [selectedPackage, setSelectedPackage] = useState<string>('')
+  const [loadingPackages, setLoadingPackages] = useState(true)
+
+  // Memoized selected package to avoid repeated array lookups
+  const selectedPackageObj = useMemo(() => {
+    return packages.find(p => p.id === selectedPackage)
+  }, [packages, selectedPackage])
+
+  // Fetch active packages on mount
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        setLoadingPackages(true)
+        const data = await packageService.getPackagesForUser()
+        setPackages(data)
+      } catch (error) {
+        console.error('Failed to fetch packages:', error)
+      } finally {
+        setLoadingPackages(false)
+      }
+    }
+    fetchPackages()
+  }, [])
 
   // Fetch chain position information using REAL commission logic
   useEffect(() => {
@@ -257,6 +283,25 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     validateField(name, value)
   }
 
+  const handlePackageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const packageId = e.target.value
+    setSelectedPackage(packageId)
+
+    const pkg = packages.find(p => p.id === packageId)
+    if (pkg) {
+      setFormData(prev => ({
+        ...prev,
+        amount: pkg.amount,
+        package_id: packageId
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        package_id: undefined
+      }))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -299,9 +344,10 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
         username: '',
         password: '',
         role: 'customer',
-        amount: 1000
+        amount: 0
       })
       setConfirmPassword('')
+      setSelectedPackage('')
       setTouched({})
       setValidationErrors({})
     } catch (err) {
@@ -565,10 +611,45 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
             )}
           </div>
 
+          {/* Package Selection */}
+          <div>
+            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+              Select Package *
+            </label>
+            <div className="relative">
+              <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+              <select
+                value={selectedPackage}
+                onChange={handlePackageChange}
+                className="w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin appearance-none"
+                disabled={loading || loadingPackages}
+                required
+              >
+                <option value="">Select a package</option>
+                {packages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} - ₹{pkg.amount.toLocaleString()} ({pkg.commission_percentage}% commission)
+                  </option>
+                ))}
+              </select>
+            </div>
+            {loadingPackages && (
+              <p className="mt-1 text-xs text-dark-500 dark:text-dark-400">Loading packages...</p>
+            )}
+            {!loadingPackages && packages.length === 0 && (
+              <p className="mt-1 text-xs text-red-500">No active packages available. Please create packages first.</p>
+            )}
+            {selectedPackageObj && (
+              <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                Commission per upline: ₹{((selectedPackageObj.amount * selectedPackageObj.commission_percentage) / 100).toLocaleString()}
+              </p>
+            )}
+          </div>
+
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-              Initial Amount (Optional)
+              Activation Amount
             </label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
@@ -577,15 +658,16 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 name="amount"
                 value={formData.amount}
                 onChange={handleInputChange}
-                placeholder="1000"
+                placeholder="Select package first"
                 min="0"
                 step="0.01"
-                className="w-full pl-10 pr-4 py-3 bg-light-50 dark:bg-dark-800 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin"
-                disabled={loading}
+                className="w-full pl-10 pr-4 py-3 bg-light-100 dark:bg-dark-900 border border-light-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-bitcoin cursor-not-allowed"
+                disabled={true}
+                readOnly
               />
             </div>
             <p className="mt-1 text-xs text-dark-500 dark:text-dark-400">
-              Starting balance for the user account
+              Amount is auto-filled based on selected package
             </p>
           </div>
         </div>
@@ -657,9 +739,10 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
                 username: '',
                 password: '',
                 role: 'customer',
-                amount: 1000
+                amount: 0
               })
               setConfirmPassword('')
+              setSelectedPackage('')
               setTouched({})
               setValidationErrors({})
               onClearError()
