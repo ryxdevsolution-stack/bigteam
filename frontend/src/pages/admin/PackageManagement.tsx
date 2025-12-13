@@ -130,14 +130,24 @@ const PackageManagement: React.FC = () => {
   }
 
   // Stats
-  const stats = {
-    total: packages.length,
-    active: packages.filter(p => p.is_active).length,
-    inactive: packages.filter(p => !p.is_active).length,
-    avgCommission: packages.length > 0
-      ? (packages.reduce((sum, p) => sum + p.commission_percentage, 0) / packages.length).toFixed(1)
-      : '0'
-  }
+  const stats = (() => {
+    // 1. Introduce a safe variable: validPackages
+    // This ensures that if 'packages' is not an array (e.g., null, undefined, or {}), 
+    // it defaults to an empty array ([]), which safely allows .length, .filter, and .reduce.
+    const validPackages = Array.isArray(packages) ? packages : [];
+
+    return {
+        // Use validPackages for all calculations
+        total: validPackages.length,
+        active: validPackages.filter(p => p.is_active).length,
+        inactive: validPackages.filter(p => !p.is_active).length,
+        
+        // Use validPackages for the length check and the reduce operation
+        avgCommission: validPackages.length > 0
+          ? (validPackages.reduce((sum, p) => sum + p.commission_percentage, 0) / validPackages.length).toFixed(1)
+          : '0'
+    };
+})()
 
   return (
     <div className="space-y-6">

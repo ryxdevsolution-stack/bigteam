@@ -294,18 +294,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Memoized admin metrics derived from posts and users
   const adminMetrics = useMemo<AdminMetrics>(() => {
-    const videoCount = posts.filter(p => p.media_type === 'video').length
-    const imageCount = posts.filter(p => p.media_type === 'image').length
-    const totalViews = posts.reduce((acc, p) => acc + (p.views_count || 0), 0)
-    const totalLikes = posts.reduce((acc, p) => acc + (p.likes_count || 0), 0)
-    const totalShares = posts.reduce((acc, p) => acc + (p.shares_count || 0), 0)
+    // 1. Solution for 'posts': Ensures 'posts' is an array, defaulting to [] if not.
+    const validPosts = Array.isArray(posts) ? posts : [];
+    
+    // 2. Solution for 'users': Ensures 'users' is an array, defaulting to [] if not.
+    const validUsers = Array.isArray(users) ? users : [];
+
+    // --- Calculations using the safe, valid array variables ---
+    
+    // Use validPosts for all filter and reduce operations:
+    const videoCount = validPosts.filter(p => p.media_type === 'video').length
+    const imageCount = validPosts.filter(p => p.media_type === 'image').length
+    
+    // Use validPosts for reduce:
+    const totalViews = validPosts.reduce((acc, p) => acc + (p.views_count || 0), 0)
+    const totalLikes = validPosts.reduce((acc, p) => acc + (p.likes_count || 0), 0)
+    const totalShares = validPosts.reduce((acc, p) => acc + (p.shares_count || 0), 0)
 
     return {
-      totalUsers: users.filter(u => u.role === 'customer').length,
-      totalPosts: posts.length,
-      engagementRate: posts.length > 0
-        ? Math.round((totalLikes + totalShares) / posts.length * 100) / 100
+      // Use validUsers for filtering total users:
+      totalUsers: validUsers.filter(u => u.role === 'customer').length,
+      
+      // Use validPosts for totalPosts and the length check in engagementRate:
+      totalPosts: validPosts.length,
+      
+      engagementRate: validPosts.length > 0
+        ? Math.round((totalLikes + totalShares) / validPosts.length * 100) / 100
         : 0,
+        
       adRevenue: 0, // Would need ads data
       totalViews,
       totalLikes,
@@ -314,7 +330,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       videoCount,
       imageCount
     }
-  }, [posts, users])
+    // The dependency array is correct
+}, [posts, users])
 
   const adminMetricsLoading = postsLoading || usersLoading
 
