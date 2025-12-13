@@ -36,10 +36,11 @@ const UserProfile: React.FC = () => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
+      // authService.logout() handles cache clearing internally
       await authService.logout();
-      navigate('/login');
     } catch (err) {
-      console.error('Logout failed:', err);
+      // Logout failed but we should still navigate to login
+    } finally {
       navigate('/login');
     }
   };

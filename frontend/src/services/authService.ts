@@ -2,7 +2,7 @@
  * Authentication Service - Login, logout, and token management
  * Integrates with JWT-based backend authentication
  */
-import api, { tokenUtils } from './api'
+import api, { tokenUtils, cacheUtils } from './api'
 
 export interface LoginCredentials {
   email: string
@@ -71,7 +71,7 @@ export const authService = {
 
   /**
    * Logout user
-   * Clears all stored tokens and user data
+   * Clears all stored tokens, user data, and cached API responses
    */
   logout: async (): Promise<void> => {
     try {
@@ -80,6 +80,8 @@ export const authService = {
     } catch (error) {
       // Ignore errors - we're logging out anyway
     } finally {
+      // Clear all cached API responses to prevent stale data on re-login
+      cacheUtils.clearAll()
       tokenUtils.clearAll()
     }
   },

@@ -192,11 +192,18 @@ def get_chain_with_commissions():
         try:
             cur = conn.cursor()
 
-            # Query 1: Get all team users (single query)
+            # Query 1: Get all team users with their package info (single query with LEFT JOIN)
             cur.execute("""
                 SELECT u.id, u.username, u.email, u.is_mlm_active,
-                       u.commission_received_count, u.activation_date, u.created_at
+                       u.commission_received_count, u.activation_date, u.created_at,
+                       p.package_id, pkg.name as package_name, pkg.amount as package_amount
                 FROM users u
+                LEFT JOIN LATERAL (
+                    SELECT package_id FROM purchases
+                    WHERE user_id = u.id AND package_id IS NOT NULL
+                    ORDER BY created_at DESC LIMIT 1
+                ) p ON true
+                LEFT JOIN packages pkg ON pkg.id = p.package_id
                 WHERE u.activation_date IS NOT NULL AND u.role != 'admin'
                 ORDER BY u.activation_date ASC
             """)
@@ -268,6 +275,9 @@ def get_chain_with_commissions():
                     'commission_received_count': row[4],
                     'activation_date': row[5].isoformat() if row[5] else None,
                     'created_at': row[6].isoformat() if row[6] else None,
+                    'package_id': str(row[7]) if row[7] else None,
+                    'package_name': row[8] or 'No Package',
+                    'package_amount': float(row[9]) if row[9] else 0,
                     'pays_commission_to': pays_to_map.get(user_id, []),
                     'received_commissions_from': received_from_map.get(user_id, [])
                 })

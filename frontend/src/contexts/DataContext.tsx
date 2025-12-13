@@ -6,7 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react'
 import { Post } from '../types/post'
 import { User } from '../types/user'
-import api, { cacheUtils } from '../services/api'
+import { cacheUtils, cachedGet } from '../services/api'
 import { DashboardStats } from '../services/userService'
 import { TreeData, Commission } from '../services/teamService'
 import { Meeting } from '../services/meetingService'
@@ -216,11 +216,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPostsLoading(true)
       setPostsError(null)
       try {
-        const response = await api.get('/api/posts')
-        const data = response.data || []
+        // Use cachedGet with 30 second TTL to prevent duplicate calls
+        const response = await cachedGet('/api/posts', { ttl: 30000 })
+        const data = response.data.data || []
         setPosts(data)
         postsCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return
         setPostsError(error.response?.data?.error || 'Failed to fetch posts')
         setPosts([])
       } finally {
@@ -247,11 +249,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUsersLoading(true)
       setUsersError(null)
       try {
-        const response = await api.get('/auth/admin/users')
-        const data = response.data || []
+        // Use cachedGet with 30 second TTL to prevent duplicate calls
+        const response = await cachedGet('/auth/admin/users', { ttl: 30000 })
+        const data = response.data.data || []
         setUsers(data)
         usersCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return
         setUsersError(error.response?.data?.error || 'Failed to fetch users')
         setUsers([])
       } finally {
@@ -351,11 +355,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDashboardStatsLoading(true)
       setDashboardStatsError(null)
       try {
-        const response = await api.get(`/api/user/dashboard-stats?user_id=${userId}`)
+        const response = await cachedGet(`/api/user/dashboard-stats?user_id=${userId}`, { ttl: 30000 })
         const data = response.data.stats
         setDashboardStats(data)
         dashboardStatsCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return
         setDashboardStatsError(error.response?.data?.error || 'Failed to fetch dashboard stats')
         setDashboardStats(null)
       } finally {
@@ -382,11 +387,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTeamTreeLoading(true)
       setTeamTreeError(null)
       try {
-        const response = await api.get(`/api/team/tree/${userId}`)
+        const response = await cachedGet(`/api/team/tree/${userId}`, { ttl: 30000 })
         const data = response.data.tree
         setTeamTree(data)
         teamTreeCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return
         setTeamTreeError(error.response?.data?.error || 'Failed to fetch team tree')
         setTeamTree(null)
       } finally {
@@ -413,13 +419,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCommissionsLoading(true)
       setCommissionsError(null)
       try {
-        const response = await api.get('/api/user/commissions', {
-          params: { user_id: userId, limit: 50 }
+        const response = await cachedGet('/api/user/commissions', {
+          params: { user_id: userId, limit: 50 },
+          ttl: 30000
         })
         const data = response.data.commissions || []
         setCommissions(data)
         commissionsCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
+        // Ignore cancelled requests (component unmount)
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+          return
+        }
         setCommissionsError(error.response?.data?.error || 'Failed to fetch commissions')
         setCommissions([])
       } finally {
@@ -446,11 +457,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfileLoading(true)
       setUserProfileError(null)
       try {
-        const response = await api.get(`/api/user/profile?user_id=${userId}`)
+        const response = await cachedGet(`/api/user/profile?user_id=${userId}`, { ttl: 30000 })
         const data = response.data.user
         setUserProfile(data)
         userProfileCache.current = { data, timestamp: Date.now(), userId }
       } catch (error: any) {
+        // Ignore cancelled requests (component unmount)
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+          return
+        }
         setUserProfileError(error.response?.data?.error || 'Failed to fetch user profile')
         setUserProfile(null)
       } finally {
@@ -477,11 +492,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHomeDataLoading(true)
       setHomeDataError(null)
       try {
-        const response = await api.get('/api/user/home-data')
+        const response = await cachedGet('/api/user/home-data', { ttl: 30000 })
         const data = response.data.data
         setHomeData(data)
         homeDataCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
+        // Ignore cancelled requests (component unmount)
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+          return
+        }
         setHomeDataError(error.response?.data?.error || 'Failed to fetch home data')
         setHomeData(null)
       } finally {
@@ -508,11 +527,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMeetingsLoading(true)
       setMeetingsError(null)
       try {
-        const response = await api.get('/api/meetings/all')
-        const data = response.data
+        const response = await cachedGet('/api/meetings/all', { ttl: 30000 })
+        // API returns raw array directly
+        const data = Array.isArray(response.data) ? response.data : (response.data.data || [])
         setMeetings(data)
         meetingsCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
+        // Ignore cancelled requests (component unmount)
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+          return
+        }
         setMeetingsError(error.response?.data?.error || error.message || 'Failed to fetch meetings')
         setMeetings([])
       } finally {
@@ -561,23 +585,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // === PACKAGES MANAGEMENT (ADMIN) ===
   const fetchPackages = useCallback(async (force: boolean = false) => {
+    // Return early if cache is valid and not forcing refresh
     if (!force && isCacheValid(packagesCache.current)) {
       return
     }
 
+    // Return existing promise if a request is already in flight
     if (packagesPromiseRef.current && !force) {
       return packagesPromiseRef.current
     }
 
+    // Use cachedGet for automatic deduplication and caching
     const fetchPromise = (async () => {
       setPackagesLoading(true)
       setPackagesError(null)
       try {
-        const response = await api.get('/api/admin/packages')
-        const data = response.data
+        // Use cachedGet with 30 second TTL to prevent duplicate calls
+        const response = await cachedGet('/api/admin/packages', { ttl: 30000 })
+        const data = response.data.data || []
         setPackages(data)
         packagesCache.current = { data, timestamp: Date.now() }
       } catch (error: any) {
+        // Ignore cancelled requests (from StrictMode or component unmount)
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+          return
+        }
         setPackagesError(error.response?.data?.error || error.message || 'Failed to fetch packages')
         setPackages([])
       } finally {

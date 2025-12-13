@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Grid3X3,
   X,
-  ChevronRight
+  ChevronRight,
+  Package
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,8 +36,9 @@ const AdminBottomNav: React.FC = () => {
 
   // More menu items
   const moreItems: NavItem[] = [
-    { path: '/admin/meetings', icon: Video, label: 'Meetings', description: 'Manage video meetings' },
+    { path: '/admin/packages', icon: Package, label: 'Packages', description: 'Manage activation packages' },
     { path: '/admin/tree', icon: TrendingUp, label: 'User Tree', description: 'View commission chain' },
+    { path: '/admin/meetings', icon: Video, label: 'Meetings', description: 'Manage video meetings' },
     { path: '/admin/profile', icon: User, label: 'Profile', description: 'Your account details' },
   ];
 

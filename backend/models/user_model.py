@@ -48,10 +48,11 @@ def create_user(full_name, email, username, password_hash, role='customer', amou
                 None,
                 package_id
             )
-            # Log activation result but don't fail user creation
+            # Log activation result for debugging
             if not success:
-                # Use proper logging in production
-                pass
+                print(f"[USER_MODEL] Activation failed for user {user_id}: {message}")
+            else:
+                print(f"[USER_MODEL] Activation successful for user {user_id}")
 
         return user_id, None
 

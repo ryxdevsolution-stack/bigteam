@@ -31,7 +31,8 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "SlashCommand(/security-scan)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "SlashCommand(/performance-check)"
     ],
     "deny": [],
     "ask": []

@@ -54,10 +54,11 @@ const AdminProfile: React.FC = () => {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
+      // authService.logout() handles cache clearing internally
       await authService.logout();
-      navigate('/login');
     } catch (err) {
-      console.error('Logout failed:', err);
+      // Logout failed but we should still navigate to login
+    } finally {
       navigate('/login');
     }
   };
@@ -88,23 +89,23 @@ const AdminProfile: React.FC = () => {
 
       try {
         const usersResponse = await api.get('/auth/admin/users');
-        users = usersResponse.data?.users || [];
+        users = usersResponse.data?.data || [];
       } catch (err) {
-        console.warn('Could not fetch users');
+        // Silent fail for stats
       }
 
       try {
         const postsResponse = await cachedGet('/api/posts', { ttl: 30000 });
-        posts = postsResponse.data?.posts || [];
+        posts = postsResponse.data?.data || [];
       } catch (err) {
-        console.warn('Could not fetch posts');
+        // Silent fail for stats
       }
 
       try {
         const adsResponse = await api.get('/api/ads');
-        ads = adsResponse.data?.ads || adsResponse.data?.advertisements || [];
+        ads = Array.isArray(adsResponse.data) ? adsResponse.data : (adsResponse.data?.data || []);
       } catch (err) {
-        console.warn('Could not fetch advertisements');
+        // Silent fail for stats
       }
 
       setStats({

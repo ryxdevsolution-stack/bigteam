@@ -56,9 +56,11 @@ const AdManagement: React.FC = () => {
   const fetchAds = async () => {
     try {
       const response = await api.get('/api/ads')
-      setAds(response.data)
+      // API returns raw array directly
+      const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
+      setAds(data)
     } catch (error) {
-      console.error('Failed to fetch ads:', error)
+      // Silent fail
     } finally {
       setLoading(false)
     }

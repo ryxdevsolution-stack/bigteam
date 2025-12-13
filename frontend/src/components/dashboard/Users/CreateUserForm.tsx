@@ -79,7 +79,7 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     const fetchChainPosition = async () => {
       try {
         // Use the api client with auth to get accurate data
-        const response = await api.get('/api/mlm/chain-with-commissions')
+        const response = await api.get('/api/team/chain-with-commissions')
         const data = response.data
         const chain = data.chain || []
 
@@ -335,6 +335,12 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     }
 
     try {
+      // Debug: Log the form data being submitted
+      console.log('[CreateUserForm] Submitting user data:', {
+        ...formData,
+        password: '[HIDDEN]'
+      })
+
       await onSubmit(formData)
 
       // Reset form on success

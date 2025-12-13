@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
@@ -25,14 +25,25 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasCheckedAuth = useRef(false);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - only check ONCE on mount
   useEffect(() => {
-    if (tokenUtils.isAuthenticated()) {
+    // Only run this check once on initial mount (using useRef to avoid extra re-renders)
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
+
+    const isAuthenticated = tokenUtils.isAuthenticated();
+    if (isAuthenticated) {
       const user = tokenUtils.getUser();
-      if (user?.role === 'admin') {
+      // Validate user data before navigation
+      if (!user || !user.role) {
+        tokenUtils.clearAll();
+        return;
+      }
+      if (user.role === 'admin') {
         navigate('/admin/dashboard', { replace: true });
       } else {
         navigate('/user/home', { replace: true });

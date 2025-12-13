@@ -254,6 +254,8 @@ def create_tables():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_package ON purchases(package_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_created ON purchases(created_at DESC)")
+        # CRITICAL: Composite index for package-specific commission lookup (LATERAL JOIN optimization)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_purchases_user_package_created ON purchases(user_id, package_id, created_at DESC) WHERE package_id IS NOT NULL")
 
         # Commissions table indexes
         cur.execute("CREATE INDEX IF NOT EXISTS idx_commissions_receiver ON commissions(receiver_id)")

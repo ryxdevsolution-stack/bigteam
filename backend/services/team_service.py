@@ -200,11 +200,13 @@ class TeamService:
             settings = TeamService._parse_settings_rows(settings_rows)
 
             # Get package details if package_id provided
+            # FOR UPDATE locks the package row to prevent race conditions
             package = None
             if package_id:
                 cur.execute("""
                     SELECT id, name, amount, commission_percentage, is_active, is_deleted
                     FROM packages WHERE id = %s
+                    FOR UPDATE
                 """, (package_id,))
                 package_row = cur.fetchone()
 
@@ -273,21 +275,44 @@ class TeamService:
             purchase_id = cur.fetchone()[0]
 
             # CORRECT LOGIC: Pay commission to LAST 2 active users in the chain
+            # PACKAGE-SPECIFIC: Only pay to users with the SAME package
             commission_limit = settings.get('commission_limit', 2)
 
             # SECURITY: Find and LOCK the last N active users who will receive commissions
             # FOR UPDATE prevents race conditions where multiple concurrent activations
             # could pay the same user more than their commission limit
-            cur.execute("""
-                SELECT mc.user_id, mc.position, mc.is_active,
-                       u.username, u.email, u.commission_received_count
-                FROM mlm_chain mc
-                JOIN users u ON mc.user_id = u.id
-                WHERE mc.is_active = true AND u.commission_received_count < %s
-                ORDER BY mc.position DESC
-                LIMIT %s
-                FOR UPDATE OF u
-            """, (commission_limit, commission_limit))
+            # PACKAGE-SPECIFIC FILTER: Only select users who have the same package_id
+            if package_id:
+                # Find eligible receivers with the SAME package
+                cur.execute("""
+                    SELECT mc.user_id, mc.position, mc.is_active,
+                           u.username, u.email, u.commission_received_count
+                    FROM mlm_chain mc
+                    JOIN users u ON mc.user_id = u.id
+                    JOIN LATERAL (
+                        SELECT package_id FROM purchases
+                        WHERE user_id = mc.user_id AND package_id IS NOT NULL
+                        ORDER BY created_at DESC LIMIT 1
+                    ) latest_purchase ON true
+                    WHERE mc.is_active = true
+                      AND u.commission_received_count < %s
+                      AND latest_purchase.package_id = %s
+                    ORDER BY mc.position DESC
+                    LIMIT %s
+                    FOR UPDATE OF u
+                """, (commission_limit, package_id, commission_limit))
+            else:
+                # Fallback for users without package (backward compatibility)
+                cur.execute("""
+                    SELECT mc.user_id, mc.position, mc.is_active,
+                           u.username, u.email, u.commission_received_count
+                    FROM mlm_chain mc
+                    JOIN users u ON mc.user_id = u.id
+                    WHERE mc.is_active = true AND u.commission_received_count < %s
+                    ORDER BY mc.position DESC
+                    LIMIT %s
+                    FOR UPDATE OF u
+                """, (commission_limit, commission_limit))
 
             receiver_rows = cur.fetchall()
 
@@ -400,17 +425,28 @@ class TeamService:
             conn.commit()
             cur.close()
 
+            # Log commission distribution for debugging
+            print(f"[COMMISSION] User {user_id} activated with package {package['name'] if package else 'None'}")
+            print(f"[COMMISSION] Found {len(receiver_rows)} eligible same-package receivers")
+            print(f"[COMMISSION] Paid commission to: {[c['receiver_username'] for c in commissions_paid]}")
+
             return True, f"User {purchase_type} successful", {
                 'purchase_id': str(purchase_id),
                 'purchase_type': purchase_type,
                 'amount': float(amount),
                 'position': next_position,
+                'package_id': package_id,
+                'package_name': package['name'] if package else None,
                 'commissions_paid': commissions_paid,
-                'total_commission_paid': float(commission_amount) * len(commissions_paid)
+                'total_commission_paid': float(commission_amount) * len(commissions_paid),
+                'same_package_receivers_found': len(receiver_rows)
             }
 
-        except Exception:
+        except Exception as e:
             conn.rollback()
+            print(f"[COMMISSION ERROR] Activation failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False, "Activation failed", {}
         finally:
             return_db_connection(conn)
