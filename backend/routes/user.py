@@ -249,7 +249,7 @@ def get_home_data():
                 ),
                 active_ads AS (
                     SELECT id, title, description, media_type, media_url,
-                           link_url, start_date, end_date,
+                           link_url, start_date::timestamp as start_date, end_date::timestamp as end_date,
                            NULL::bigint as likes_count, NULL::bigint as shares_count,
                            NULL::bigint as views_count, NULL::uuid as created_by,
                            NULL::timestamp as created_at, NULL::text as content,
@@ -269,7 +269,7 @@ def get_home_data():
                            NULL::timestamp as created_at, NULL::text as content,
                            NULL::text as thumbnail_url, NULL::text as media_type,
                            NULL::text as media_url, NULL::text as link_url,
-                           NULL::date as start_date, NULL::date as end_date,
+                           NULL::timestamp as start_date, NULL::timestamp as end_date,
                            'meeting' as data_type
                     FROM meetings
                     WHERE is_active = true AND meeting_date >= CURRENT_DATE
@@ -279,23 +279,24 @@ def get_home_data():
                 -- Videos
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
                        created_by, created_at, likes_count, shares_count, views_count,
-                       data_type, NULL as description, NULL as link_url,
-                       NULL as start_date, NULL as end_date,
-                       NULL as zoom_link, NULL as meeting_date, NULL as meeting_time,
-                       NULL as duration_minutes, NULL as host_name
+                       data_type, NULL::text as description, NULL::text as link_url,
+                       NULL::timestamp as start_date, NULL::timestamp as end_date,
+                       NULL::text as zoom_link, NULL::date as meeting_date, NULL::time as meeting_time,
+                       NULL::integer as duration_minutes, NULL::text as host_name
                 FROM videos
                 UNION ALL
                 -- Photos
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
                        created_by, created_at, likes_count, shares_count, views_count,
-                       data_type, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                       data_type, NULL::text, NULL::text, NULL::timestamp, NULL::timestamp,
+                       NULL::text, NULL::date, NULL::time, NULL::integer, NULL::text
                 FROM photos
                 UNION ALL
                 -- Ads
                 SELECT id, title, content, media_type, media_url, thumbnail_url,
                        created_by, created_at, likes_count, shares_count, views_count,
                        data_type, description, link_url, start_date, end_date,
-                       NULL, NULL, NULL, NULL, NULL
+                       NULL::text, NULL::date, NULL::time, NULL::integer, NULL::text
                 FROM active_ads
                 UNION ALL
                 -- Meetings

@@ -32,7 +32,9 @@
       "Bash(ls:*)",
       "SlashCommand(/security-scan)",
       "Bash(git rm:*)",
-      "SlashCommand(/performance-check)"
+      "SlashCommand(/performance-check)",
+      "Bash(PGPASSWORD='Ryx@2025' psql:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []

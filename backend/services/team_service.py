@@ -379,14 +379,15 @@ class TeamService:
 
             # Batch deactivate receivers who reached commission limit
             if receivers_to_deactivate:
+                # Cast string UUIDs to UUID type for PostgreSQL compatibility
                 cur.execute("""
                     UPDATE mlm_chain SET is_active = false, deactivated_at = NOW()
-                    WHERE user_id = ANY(%s) AND is_active = true
+                    WHERE user_id = ANY(%s::uuid[]) AND is_active = true
                 """, (receivers_to_deactivate,))
 
                 cur.execute("""
                     UPDATE users SET is_mlm_active = false
-                    WHERE id = ANY(%s)
+                    WHERE id = ANY(%s::uuid[])
                 """, (receivers_to_deactivate,))
 
             # Get next position inline (avoid opening new connection)

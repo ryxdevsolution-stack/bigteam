@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import authService from '../../services/authService';
+import PackageSelectionModal from '../../components/shared/PackageSelectionModal';
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +33,15 @@ const UserProfile: React.FC = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showPackageModal, setShowPackageModal] = useState(false);
+
+  const handleActivationSuccess = () => {
+    // Refresh user profile and stats after successful activation
+    if (user.id) {
+      fetchUserProfile(user.id);
+      fetchDashboardStats(user.id);
+    }
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -347,7 +357,10 @@ const UserProfile: React.FC = () => {
             </div>
           </div>
           {!isActiveMember && (
-            <button className="px-6 py-3 bg-white text-orange-600 font-semibold rounded-xl hover:bg-white/90 transition-colors shadow-lg self-start sm:self-auto">
+            <button
+              onClick={() => setShowPackageModal(true)}
+              className="px-6 py-3 bg-white text-orange-600 font-semibold rounded-xl hover:bg-white/90 transition-colors shadow-lg self-start sm:self-auto"
+            >
               Activate Now
             </button>
           )}
@@ -373,6 +386,14 @@ const UserProfile: React.FC = () => {
           <span>{loggingOut ? 'Logging out...' : 'Logout'}</span>
         </button>
       </motion.div>
+
+      {/* Package Selection Modal */}
+      <PackageSelectionModal
+        isOpen={showPackageModal}
+        onClose={() => setShowPackageModal(false)}
+        onSuccess={handleActivationSuccess}
+        userBalance={profile?.amount || 0}
+      />
     </div>
   );
 };

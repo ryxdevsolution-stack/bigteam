@@ -58,11 +58,12 @@ const teamService = {
   },
 
   // Create purchase for activation/reactivation
-  createPurchase: async (userId: string, amount: number, invitedBy?: string): Promise<PurchaseResult> => {
+  createPurchase: async (userId: string, amount: number, invitedBy?: string, packageId?: string): Promise<PurchaseResult> => {
     const response = await api.post('/api/team/purchase', {
       user_id: userId,
       amount,
-      invited_by: invitedBy
+      invited_by: invitedBy,
+      package_id: packageId
     });
     return response.data.data;
   },

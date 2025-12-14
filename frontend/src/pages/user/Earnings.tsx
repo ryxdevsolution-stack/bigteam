@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -9,6 +9,7 @@ import {
   Download
 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+import PackageSelectionModal from '../../components/shared/PackageSelectionModal';
 
 const Earnings: React.FC = () => {
   const {
@@ -17,10 +18,21 @@ const Earnings: React.FC = () => {
     fetchDashboardStats,
     commissions,
     commissionsLoading,
-    fetchCommissions
+    fetchCommissions,
+    userProfile,
+    fetchUserProfile
   } = useData();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const loading = dashboardStatsLoading || commissionsLoading;
+  const [showPackageModal, setShowPackageModal] = useState(false);
+
+  const handleActivationSuccess = () => {
+    if (user.id) {
+      fetchDashboardStats(user.id);
+      fetchCommissions(user.id);
+      fetchUserProfile(user.id);
+    }
+  };
 
   useEffect(() => {
     if (user.id) {
@@ -194,13 +206,24 @@ const Earnings: React.FC = () => {
               <p className="text-white/90 mb-4">
                 Purchase an activation package to start earning commissions from your team
               </p>
-              <button className="px-6 py-3 bg-white text-orange-600 rounded-lg font-semibold hover:bg-white/90 transition-all">
+              <button
+                onClick={() => setShowPackageModal(true)}
+                className="px-6 py-3 bg-white text-orange-600 rounded-lg font-semibold hover:bg-white/90 transition-all"
+              >
                 Activate Now
               </button>
             </div>
           </div>
         </motion.div>
       )}
+
+      {/* Package Selection Modal */}
+      <PackageSelectionModal
+        isOpen={showPackageModal}
+        onClose={() => setShowPackageModal(false)}
+        onSuccess={handleActivationSuccess}
+        userBalance={userProfile?.amount || 0}
+      />
     </div>
   );
 };
