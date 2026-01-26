@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Package, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { X, Package, CheckCircle, Loader2, AlertCircle, RefreshCw, Sparkles, Award } from 'lucide-react';
 import packageService, { Package as PackageType } from '../../services/packageService';
 import teamService from '../../services/teamService';
+import activationRequestService from '../../services/activationRequestService';
 
 // Safe user retrieval from localStorage
 const getUserFromStorage = (): { id?: string } => {
@@ -19,13 +20,17 @@ interface PackageSelectionModalProps {
   onClose: () => void;
   onSuccess: () => void;
   userBalance: number;
+  isReactivation?: boolean;
+  commissionCount?: number;
 }
 
 const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  userBalance
+  userBalance,
+  isReactivation = false,
+  commissionCount = 0
 }) => {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,16 +75,32 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     setError(null);
 
     try {
-      await teamService.createPurchase(
-        user.id,
-        selectedPackage.amount,
-        undefined, // invitedBy
-        selectedPackage.id // packageId
-      );
-      onSuccess();
-      onClose();
+      // If this is a reactivation, submit a request for admin approval
+      if (isReactivation) {
+        const response = await activationRequestService.submitRequest(selectedPackage.id);
+
+        if (response.success) {
+          // Success - request submitted
+          alert(`✅ ${response.message}\n\nYour reactivation request has been submitted to the admin. You will be notified once it's reviewed.`);
+          onSuccess();
+          onClose();
+        } else {
+          // Failed - show error
+          setError(response.message);
+        }
+      } else {
+        // First-time activation - instant activation (no admin approval needed)
+        await teamService.createPurchase(
+          user.id,
+          selectedPackage.amount,
+          undefined, // invitedBy
+          selectedPackage.id // packageId
+        );
+        onSuccess();
+        onClose();
+      }
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || 'Purchase failed. Please try again.';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Operation failed. Please try again.';
       setError(errorMsg);
     } finally {
       setPurchasing(false);
@@ -106,17 +127,25 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-dark-600">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white">
-                Select Package
-              </h2>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-dark-900 dark:text-white">
+                  {isReactivation ? 'Reactivate Your Account' : 'Select Package'}
+                </h2>
+                {isReactivation && (
+                  <RefreshCw className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                )}
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Choose a package to activate your account
+                {isReactivation
+                  ? `Submit a request to admin for reactivation approval`
+                  : 'Choose a package to activate your account'
+                }
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full transition-colors flex-shrink-0"
             >
               <X className="w-5 h-5 text-gray-500" />
             </button>
@@ -130,6 +159,39 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                 Your Balance: <span className="font-bold">₹{userBalance.toLocaleString()}</span>
               </p>
             </div>
+
+            {/* Reactivation Info Card - Clean Design */}
+            {isReactivation && (
+              <div className="mb-4 p-4 bg-gray-50 dark:bg-dark-700/50 rounded-lg border border-gray-200 dark:border-dark-600">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-dark-600 flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <h4 className="font-semibold text-dark-900 dark:text-white text-sm">Admin Approval Required</h4>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 border-l-2 border-gray-300 dark:border-dark-600 pl-3">
+                  Your reactivation request will be reviewed by an administrator before activation.
+                </p>
+                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span>Commission counter resets from {commissionCount}/2 to 0/2</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span>Rejoin the chain at a new position</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span>Start earning commissions again immediately</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span>Original sponsor relationship preserved</span>
+                  </li>
+                </ul>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -159,26 +221,26 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                       key={pkg.id}
                       onClick={() => setSelectedPackage(pkg)}
                       disabled={!canAfford}
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                      className={`w-full p-4 rounded-lg border transition-all text-left ${
                         isSelected
-                          ? 'border-accent-bitcoin bg-orange-50 dark:bg-orange-900/20'
+                          ? 'border-dark-900 dark:border-white bg-gray-100 dark:bg-dark-700'
                           : canAfford
-                          ? 'border-gray-200 dark:border-dark-600 hover:border-accent-bitcoin/50'
+                          ? 'border-gray-200 dark:border-dark-600 hover:border-gray-400 dark:hover:border-dark-500'
                           : 'border-gray-200 dark:border-dark-600 opacity-50 cursor-not-allowed'
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                             isSelected
-                              ? 'bg-gradient-to-br from-accent-bitcoin to-accent-orange'
+                              ? 'bg-dark-900 dark:bg-white'
                               : 'bg-gray-100 dark:bg-dark-700'
                           }`}>
-                            <Package className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-gray-500'}`} />
+                            <Package className={`w-5 h-5 ${isSelected ? 'text-white dark:text-dark-900' : 'text-gray-500'}`} />
                           </div>
                           <div>
                             <h3 className={`font-semibold ${
-                              isSelected ? 'text-accent-bitcoin' : 'text-dark-900 dark:text-white'
+                              isSelected ? 'text-dark-900 dark:text-white' : 'text-dark-900 dark:text-white'
                             }`}>
                               {pkg.name}
                             </h3>
@@ -188,11 +250,11 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                               </p>
                             )}
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full">
+                              <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-dark-600 text-gray-700 dark:text-gray-300 rounded">
                                 {pkg.commission_percentage}% commission
                               </span>
                               {!canAfford && (
-                                <span className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full">
+                                <span className="text-xs px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
                                   Insufficient balance
                                 </span>
                               )}
@@ -201,12 +263,12 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                         </div>
                         <div className="text-right">
                           <p className={`text-lg font-bold ${
-                            isSelected ? 'text-accent-bitcoin' : 'text-dark-900 dark:text-white'
+                            isSelected ? 'text-dark-900 dark:text-white' : 'text-dark-900 dark:text-white'
                           }`}>
                             ₹{pkg.amount.toLocaleString()}
                           </p>
                           {isSelected && (
-                            <CheckCircle className="w-5 h-5 text-accent-bitcoin ml-auto mt-1" />
+                            <CheckCircle className="w-5 h-5 text-dark-900 dark:text-white ml-auto mt-1" />
                           )}
                         </div>
                       </div>
@@ -237,7 +299,7 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
               <button
                 onClick={handlePurchase}
                 disabled={!selectedPackage || purchasing}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-dark-900 dark:bg-white text-white dark:text-dark-900 rounded-lg font-semibold hover:bg-dark-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {purchasing ? (
                   <>
@@ -246,7 +308,14 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                   </>
                 ) : (
                   <>
-                    Activate Now
+                    {isReactivation ? (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Submit Request
+                      </>
+                    ) : (
+                      'Activate Now'
+                    )}
                     {selectedPackage && (
                       <span className="text-sm opacity-80">
                         (₹{selectedPackage.amount.toLocaleString()})

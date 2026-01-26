@@ -2,6 +2,7 @@
 Team Service - Business Logic for Linear Chain Commission System
 Handles activation, commission calculation, and chain management
 """
+import json
 import random
 import string
 from datetime import datetime
@@ -378,8 +379,70 @@ class TeamService:
                     commissions_paid[-1]['deactivated'] = True
 
             # Batch deactivate receivers who reached commission limit
+            # IMPORTANT: Save their activation to JSONB history before deactivating
             if receivers_to_deactivate:
-                # Cast string UUIDs to UUID type for PostgreSQL compatibility
+                for receiver_id in receivers_to_deactivate:
+                    # Get current activation data before deactivating
+                    cur.execute("""
+                        SELECT mc.position, mc.created_at, p.package_id, pkg.name, pkg.amount, u.sponsored_by, u.activation_date
+                        FROM mlm_chain mc
+                        JOIN users u ON mc.user_id = u.id
+                        LEFT JOIN purchases p ON p.user_id = mc.user_id
+                            AND p.status = 'completed'
+                            AND p.package_id IS NOT NULL
+                            AND p.created_at >= mc.created_at
+                        LEFT JOIN packages pkg ON p.package_id = pkg.id
+                        WHERE mc.user_id = %s AND mc.is_active = true
+                        ORDER BY p.created_at DESC
+                        LIMIT 1
+                    """, (receiver_id,))
+
+                    activation_data = cur.fetchone()
+
+                    if activation_data:
+                        position, created_at, pkg_id, pkg_name, pkg_amount, sponsor, activated_at = activation_data
+
+                        # Build activation record for JSONB
+                        days_active = (datetime.now() - created_at).days if created_at else 0
+
+                        new_activation = {
+                            "position_in_chain": position,
+                            "package": {
+                                "id": str(pkg_id) if pkg_id else None,
+                                "name": pkg_name or "Unknown Package",
+                                "amount": float(pkg_amount) if pkg_amount else 0
+                            },
+                            "timeline": {
+                                "activated_at": created_at.isoformat() if created_at else None,
+                                "deactivated_at": datetime.now().isoformat(),
+                                "days_active": days_active
+                            },
+                            "performance": {
+                                "commissions_earned": 2,
+                                "purchase_type": "deactivated_at_limit"
+                            },
+                            "sponsor_at_activation": str(sponsor) if sponsor else None,
+                            "is_current": False
+                        }
+
+                        # Add to user's activation_history JSONB
+                        try:
+                            activation_json = json.dumps(new_activation)
+                            cur.execute("""
+                                UPDATE users
+                                SET activation_history = jsonb_set(
+                                    COALESCE(activation_history, '{"activations": [], "statistics": {}}'::jsonb),
+                                    '{activations}',
+                                    COALESCE(activation_history->'activations', '[]'::jsonb) || %s::jsonb,
+                                    true
+                                )
+                                WHERE id = %s
+                            """, (activation_json, receiver_id))
+                        except (TypeError, ValueError) as e:
+                            print(f"[ERROR] Failed to serialize activation history for user {receiver_id}: {e}")
+                            # Continue without failing activation (non-critical)
+
+                # Now deactivate in mlm_chain and users table
                 cur.execute("""
                     UPDATE mlm_chain SET is_active = false, deactivated_at = NOW()
                     WHERE user_id = ANY(%s::uuid[]) AND is_active = true
@@ -394,13 +457,91 @@ class TeamService:
             cur.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM mlm_chain")
             next_position = cur.fetchone()[0]
 
-            # Add user to chain
+            # Check if user already has an entry in mlm_chain
+            # FIXED: Use FOR UPDATE to lock row and prevent race conditions
             cur.execute("""
-                INSERT INTO mlm_chain (user_id, position, is_active)
-                VALUES (%s, %s, %s)
-            """, (user_id, next_position, True))
+                SELECT id, is_active
+                FROM mlm_chain
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                FOR UPDATE
+            """, (user_id,))
+            existing_chain = cur.fetchone()
+
+            if existing_chain and not existing_chain[1]:
+                # User has inactive entry - this is reactivation
+                # Save old activation to JSONB history first (if not already saved)
+                cur.execute("""
+                    SELECT mc.position, mc.created_at, mc.deactivated_at
+                    FROM mlm_chain mc
+                    WHERE mc.user_id = %s AND mc.is_active = false
+                    ORDER BY mc.created_at DESC
+                    LIMIT 1
+                """, (user_id,))
+
+                old_data = cur.fetchone()
+                if old_data:
+                    old_position, old_created, old_deactivated = old_data
+
+                    # Check if this activation is already in history
+                    cur.execute("""
+                        SELECT 1 FROM users
+                        WHERE id = %s
+                        AND activation_history->'activations' @> %s::jsonb
+                    """, (user_id, json.dumps([{"position_in_chain": old_position}])))
+
+                    already_saved = cur.fetchone()
+
+                    if not already_saved:
+                        # Add old activation to history
+                        days_active = (old_deactivated - old_created).days if (old_deactivated and old_created) else 0
+
+                        old_activation = {
+                            "position_in_chain": old_position,
+                            "timeline": {
+                                "activated_at": old_created.isoformat() if old_created else None,
+                                "deactivated_at": old_deactivated.isoformat() if old_deactivated else None,
+                                "days_active": days_active
+                            },
+                            "performance": {
+                                "commissions_earned": 2,
+                                "purchase_type": "reactivation"
+                            },
+                            "is_current": False
+                        }
+
+                        try:
+                            activation_json = json.dumps(old_activation)
+                            cur.execute("""
+                                UPDATE users
+                                SET activation_history = jsonb_set(
+                                    COALESCE(activation_history, '{"activations": [], "statistics": {}}'::jsonb),
+                                    '{activations}',
+                                    COALESCE(activation_history->'activations', '[]'::jsonb) || %s::jsonb,
+                                    true
+                                )
+                                WHERE id = %s
+                            """, (activation_json, user_id))
+                        except (TypeError, ValueError) as e:
+                            print(f"[ERROR] Failed to serialize activation history for user {user_id}: {e}")
+                            # Continue without failing activation (non-critical)
+
+                # Update existing entry to active with new position
+                cur.execute("""
+                    UPDATE mlm_chain
+                    SET is_active = true, position = %s, deactivated_at = NULL, created_at = NOW()
+                    WHERE user_id = %s AND is_active = false
+                """, (next_position, user_id))
+            else:
+                # First time activation - insert new row
+                cur.execute("""
+                    INSERT INTO mlm_chain (user_id, position, is_active)
+                    VALUES (%s, %s, %s)
+                """, (user_id, next_position, True))
 
             # Update user activation status
+            # IMPORTANT: Don't overwrite sponsored_by on reactivation (preserve original sponsor)
             if not user['invite_code']:
                 invite_code = TeamService.generate_invite_code()
                 cur.execute("""
@@ -408,19 +549,46 @@ class TeamService:
                     SET is_mlm_active = true,
                         activation_date = NOW(),
                         referral_code = %s,
-                        sponsored_by = %s,
+                        sponsored_by = COALESCE(sponsored_by, %s),
                         commission_received_count = 0
                     WHERE id = %s
                 """, (invite_code, invited_by, user_id))
             else:
-                cur.execute("""
-                    UPDATE users
-                    SET is_mlm_active = true,
-                        activation_date = NOW(),
-                        sponsored_by = %s,
-                        commission_received_count = 0
-                    WHERE id = %s
-                """, (invited_by, user_id))
+                # On reactivation, keep original sponsor (don't overwrite)
+                if is_reactivation:
+                    cur.execute("""
+                        UPDATE users
+                        SET is_mlm_active = true,
+                            activation_date = NOW(),
+                            commission_received_count = 0
+                        WHERE id = %s
+                    """, (user_id,))
+                else:
+                    # First activation - set sponsor
+                    cur.execute("""
+                        UPDATE users
+                        SET is_mlm_active = true,
+                            activation_date = NOW(),
+                            sponsored_by = %s,
+                            commission_received_count = 0
+                        WHERE id = %s
+                    """, (invited_by, user_id))
+
+            # Update activation_history statistics
+            cur.execute("""
+                UPDATE users
+                SET activation_history = jsonb_set(
+                    activation_history,
+                    '{statistics}',
+                    jsonb_build_object(
+                        'total_activations', COALESCE(jsonb_array_length(activation_history->'activations'), 0) + 1,
+                        'last_updated', %s,
+                        'current_package', %s
+                    ),
+                    true
+                )
+                WHERE id = %s
+            """, (datetime.now().isoformat(), package['name'] if package else 'Unknown', user_id))
 
             # Single commit for entire transaction
             conn.commit()

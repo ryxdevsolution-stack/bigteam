@@ -12,7 +12,8 @@ import {
   Grid3X3,
   X,
   ChevronRight,
-  Package
+  Package,
+  RefreshCw
 } from 'lucide-react';
 
 interface NavItem {
@@ -36,6 +37,7 @@ const AdminBottomNav: React.FC = () => {
 
   // More menu items
   const moreItems: NavItem[] = [
+    { path: '/admin/activation-requests', icon: RefreshCw, label: 'Activation Requests', description: 'Review reactivation requests' },
     { path: '/admin/packages', icon: Package, label: 'Packages', description: 'Manage activation packages' },
     { path: '/admin/tree', icon: TrendingUp, label: 'User Tree', description: 'View commission chain' },
     { path: '/admin/meetings', icon: Video, label: 'Meetings', description: 'Manage video meetings' },
@@ -101,25 +103,25 @@ const AdminBottomNav: React.FC = () => {
                         onClick={() => handleNavigate(item.path)}
                         className={`w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-200 ${
                           active
-                            ? 'bg-gradient-to-r from-accent-bitcoin/10 to-accent-orange/10 border border-accent-bitcoin/20'
+                            ? 'bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600'
                             : 'bg-light-50 dark:bg-dark-800/80 border border-transparent hover:border-light-200 dark:hover:border-dark-700'
                         }`}
                       >
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
                           active
-                            ? 'bg-gradient-to-br from-accent-bitcoin to-accent-orange shadow-lg shadow-accent-bitcoin/20'
+                            ? 'bg-dark-900 dark:bg-white'
                             : 'bg-light-100 dark:bg-dark-700'
                         }`}>
-                          <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-dark-600 dark:text-dark-300'}`} />
+                          <Icon className={`w-5 h-5 ${active ? 'text-white dark:text-dark-900' : 'text-dark-600 dark:text-dark-300'}`} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-sm font-semibold ${
-                            active ? 'text-accent-bitcoin dark:text-accent-orange' : 'text-dark-800 dark:text-white'
+                            active ? 'text-dark-900 dark:text-white' : 'text-dark-800 dark:text-white'
                           }`}>{item.label}</p>
                           <p className="text-xs text-dark-500 dark:text-dark-400 mt-0.5">{item.description}</p>
                         </div>
                         <ChevronRight className={`w-4 h-4 ${
-                          active ? 'text-accent-bitcoin dark:text-accent-orange' : 'text-dark-400 dark:text-dark-500'
+                          active ? 'text-dark-900 dark:text-white' : 'text-dark-400 dark:text-dark-500'
                         }`} />
                       </button>
                     );
@@ -139,20 +141,20 @@ const AdminBottomNav: React.FC = () => {
             <button
               onClick={() => handleNavigate('/admin/dashboard')}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 ${
-                isActive('/admin/dashboard') ? 'bg-accent-bitcoin/10' : ''
+                isActive('/admin/dashboard') ? 'bg-gray-100 dark:bg-dark-700' : ''
               }`}
             >
               <LayoutDashboard
                 className={`w-5 h-5 ${
                   isActive('/admin/dashboard')
-                    ? 'text-accent-bitcoin dark:text-accent-orange'
+                    ? 'text-dark-900 dark:text-white'
                     : 'text-dark-400 dark:text-dark-500'
                 }`}
                 strokeWidth={isActive('/admin/dashboard') ? 2.5 : 2}
               />
               <span className={`text-[0.65rem] mt-1 ${
                 isActive('/admin/dashboard')
-                  ? 'text-accent-bitcoin dark:text-accent-orange font-semibold'
+                  ? 'text-dark-900 dark:text-white font-semibold'
                   : 'text-dark-400 dark:text-dark-500'
               }`}>
                 Home
@@ -163,20 +165,20 @@ const AdminBottomNav: React.FC = () => {
             <button
               onClick={() => handleNavigate('/admin/customers')}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 ${
-                isActive('/admin/customers') ? 'bg-accent-bitcoin/10' : ''
+                isActive('/admin/customers') ? 'bg-gray-100 dark:bg-dark-700' : ''
               }`}
             >
               <Users
                 className={`w-5 h-5 ${
                   isActive('/admin/customers')
-                    ? 'text-accent-bitcoin dark:text-accent-orange'
+                    ? 'text-dark-900 dark:text-white'
                     : 'text-dark-400 dark:text-dark-500'
                 }`}
                 strokeWidth={isActive('/admin/customers') ? 2.5 : 2}
               />
               <span className={`text-[0.65rem] mt-1 ${
                 isActive('/admin/customers')
-                  ? 'text-accent-bitcoin dark:text-accent-orange font-semibold'
+                  ? 'text-dark-900 dark:text-white font-semibold'
                   : 'text-dark-400 dark:text-dark-500'
               }`}>
                 Users
@@ -187,20 +189,20 @@ const AdminBottomNav: React.FC = () => {
             <button
               onClick={() => handleNavigate('/admin/content')}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 ${
-                isActive('/admin/content') ? 'bg-accent-bitcoin/10' : ''
+                isActive('/admin/content') ? 'bg-gray-100 dark:bg-dark-700' : ''
               }`}
             >
               <FileVideo
                 className={`w-5 h-5 ${
                   isActive('/admin/content')
-                    ? 'text-accent-bitcoin dark:text-accent-orange'
+                    ? 'text-dark-900 dark:text-white'
                     : 'text-dark-400 dark:text-dark-500'
                 }`}
                 strokeWidth={isActive('/admin/content') ? 2.5 : 2}
               />
               <span className={`text-[0.65rem] mt-1 ${
                 isActive('/admin/content')
-                  ? 'text-accent-bitcoin dark:text-accent-orange font-semibold'
+                  ? 'text-dark-900 dark:text-white font-semibold'
                   : 'text-dark-400 dark:text-dark-500'
               }`}>
                 Content
@@ -211,20 +213,20 @@ const AdminBottomNav: React.FC = () => {
             <button
               onClick={() => handleNavigate('/admin/ads')}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 ${
-                isActive('/admin/ads') ? 'bg-accent-bitcoin/10' : ''
+                isActive('/admin/ads') ? 'bg-gray-100 dark:bg-dark-700' : ''
               }`}
             >
               <Megaphone
                 className={`w-5 h-5 ${
                   isActive('/admin/ads')
-                    ? 'text-accent-bitcoin dark:text-accent-orange'
+                    ? 'text-dark-900 dark:text-white'
                     : 'text-dark-400 dark:text-dark-500'
                 }`}
                 strokeWidth={isActive('/admin/ads') ? 2.5 : 2}
               />
               <span className={`text-[0.65rem] mt-1 ${
                 isActive('/admin/ads')
-                  ? 'text-accent-bitcoin dark:text-accent-orange font-semibold'
+                  ? 'text-dark-900 dark:text-white font-semibold'
                   : 'text-dark-400 dark:text-dark-500'
               }`}>
                 Ads
@@ -235,14 +237,14 @@ const AdminBottomNav: React.FC = () => {
             <button
               onClick={() => setShowMore(true)}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 relative ${
-                isMoreActive ? 'bg-accent-bitcoin/10' : ''
+                isMoreActive ? 'bg-gray-100 dark:bg-dark-700' : ''
               }`}
             >
               <div className="relative">
                 <Grid3X3
                   className={`w-5 h-5 ${
                     isMoreActive
-                      ? 'text-accent-bitcoin dark:text-accent-orange'
+                      ? 'text-dark-900 dark:text-white'
                       : 'text-dark-400 dark:text-dark-500'
                   }`}
                   strokeWidth={isMoreActive ? 2.5 : 2}
@@ -251,13 +253,13 @@ const AdminBottomNav: React.FC = () => {
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gradient-to-r from-accent-bitcoin to-accent-orange rounded-full ring-2 ring-white dark:ring-dark-900"
+                    className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-dark-900 dark:bg-white rounded-full ring-2 ring-white dark:ring-dark-900"
                   />
                 )}
               </div>
               <span className={`text-[0.65rem] mt-1 ${
                 isMoreActive
-                  ? 'text-accent-bitcoin dark:text-accent-orange font-semibold'
+                  ? 'text-dark-900 dark:text-white font-semibold'
                   : 'text-dark-400 dark:text-dark-500'
               }`}>
                 {isMoreActive && activeMoreItem ? activeMoreItem.label : 'More'}

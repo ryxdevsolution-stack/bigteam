@@ -13,7 +13,8 @@ import {
   Palette,
   Megaphone,
   Video,
-  Package
+  Package,
+  RefreshCw
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -55,6 +56,7 @@ const Sidebar: React.FC = () => {
     { id: 'ads', label: 'Advertisements', icon: Megaphone, path: '/admin/ads' },
     { id: 'meetings', label: 'Meetings', icon: Video, path: '/admin/meetings' },
     { id: 'packages', label: 'Packages', icon: Package, path: '/admin/packages' },
+    { id: 'activation-requests', label: 'Activation Requests', icon: RefreshCw, path: '/admin/activation-requests' },
     { id: 'tree', label: 'User Tree View', icon: TrendingUp, path: '/admin/tree' },
   ];
 

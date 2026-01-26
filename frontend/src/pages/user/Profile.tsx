@@ -14,11 +14,15 @@ import {
   ChevronRight,
   Target,
   Activity,
-  LogOut
+  LogOut,
+  History,
+  RefreshCw
 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import authService from '../../services/authService';
 import PackageSelectionModal from '../../components/shared/PackageSelectionModal';
+import ActivationHistoryTimeline from '../../components/user/ActivationHistoryTimeline';
+import activationRequestService, { ActivationRequest } from '../../services/activationRequestService';
 
 const UserProfile: React.FC = () => {
   const navigate = useNavigate();
@@ -34,12 +38,32 @@ const UserProfile: React.FC = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [loggingOut, setLoggingOut] = useState(false);
   const [showPackageModal, setShowPackageModal] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<ActivationRequest | null>(null);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+
+  const fetchPendingRequest = async () => {
+    try {
+      const response = await activationRequestService.getMyPendingRequest();
+      if (response.success && response.has_pending && response.request) {
+        setPendingRequest(response.request);
+        setHasPendingRequest(true);
+      } else {
+        setPendingRequest(null);
+        setHasPendingRequest(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch pending request:', error);
+      setPendingRequest(null);
+      setHasPendingRequest(false);
+    }
+  };
 
   const handleActivationSuccess = () => {
     // Refresh user profile and stats after successful activation
     if (user.id) {
       fetchUserProfile(user.id);
       fetchDashboardStats(user.id);
+      fetchPendingRequest(); // Also refresh pending request status
     }
   };
 
@@ -59,8 +83,10 @@ const UserProfile: React.FC = () => {
     if (user.id) {
       fetchUserProfile(user.id);
       fetchDashboardStats(user.id);
+      fetchPendingRequest();
     }
-  }, [user.id, fetchUserProfile, fetchDashboardStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]); // Only re-run when user.id changes
 
   if (loading || dashboardStatsLoading) {
     return (
@@ -78,6 +104,10 @@ const UserProfile: React.FC = () => {
   const totalEarnings = dashboardStats?.total_earnings || profile?.total_earnings || 0;
   const availableBalance = dashboardStats?.available_balance || profile?.available_balance || 0;
   const pendingBalance = dashboardStats?.pending_balance || profile?.pending_balance || 0;
+
+  // Reactivation status detection
+  const needsReactivation = !isActiveMember && commissionCount >= 2;
+  const isFirstTimeActivation = !isActiveMember && commissionCount === 0 && !profile?.activation_date;
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
@@ -332,6 +362,10 @@ const UserProfile: React.FC = () => {
         className={`rounded-2xl p-4 sm:p-6 shadow-lg ${
           isActiveMember
             ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+            : hasPendingRequest
+            ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white'
+            : needsReactivation
+            ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white'
             : 'bg-gradient-to-r from-orange-500 to-amber-600 text-white'
         }`}
       >
@@ -340,30 +374,78 @@ const UserProfile: React.FC = () => {
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/20 flex items-center justify-center">
               {isActiveMember ? (
                 <Award className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+              ) : hasPendingRequest ? (
+                <Clock className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
+              ) : needsReactivation ? (
+                <RefreshCw className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
               ) : (
                 <Clock className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
               )}
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-bold">
-                {isActiveMember ? 'Your Account is Active!' : 'Account Inactive'}
+                {isActiveMember
+                  ? 'Your Account is Active!'
+                  : hasPendingRequest
+                  ? 'Reactivation Request Pending'
+                  : needsReactivation
+                  ? 'Ready to Reactivate!'
+                  : 'Account Inactive'}
               </h3>
               <p className="text-white/80 text-sm mt-1">
                 {isActiveMember
                   ? `You have received ${commissionCount}/2 commissions. ${commissionCount >= 2 ? 'Reactivate to continue earning!' : 'Keep growing your team!'}`
-                  : 'Activate your account to start earning commissions from your team.'
+                  : hasPendingRequest && pendingRequest
+                  ? `Your request for ${pendingRequest.package_name} (₹${pendingRequest.package_amount.toLocaleString()}) is awaiting admin approval. Submitted on ${new Date(pendingRequest.requested_at).toLocaleDateString()}.`
+                  : needsReactivation
+                  ? `You've completed your commission cycle (2/2). Submit a request to reactivate and start earning again!`
+                  : isFirstTimeActivation
+                  ? 'Activate your account to start earning commissions from your team.'
+                  : 'Reactivate your account to continue earning commissions from your team.'
                 }
               </p>
             </div>
           </div>
-          {!isActiveMember && (
+          {!isActiveMember && !hasPendingRequest && (
             <button
               onClick={() => setShowPackageModal(true)}
-              className="px-6 py-3 bg-white text-orange-600 font-semibold rounded-xl hover:bg-white/90 transition-colors shadow-lg self-start sm:self-auto"
+              className={`px-6 py-3 font-semibold rounded-xl transition-colors shadow-lg self-start sm:self-auto flex items-center gap-2 ${
+                needsReactivation
+                  ? 'bg-white text-purple-600 hover:bg-white/90'
+                  : 'bg-white text-orange-600 hover:bg-white/90'
+              }`}
             >
-              Activate Now
+              {needsReactivation ? (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Reactivate Now
+                </>
+              ) : (
+                'Activate Now'
+              )}
             </button>
           )}
+        </div>
+      </motion.div>
+
+      {/* Activation History Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg overflow-hidden"
+      >
+        <div className="p-4 sm:p-6 border-b border-light-200 dark:border-dark-600">
+          <h3 className="text-lg font-bold text-dark-900 dark:text-white flex items-center gap-2">
+            <History className="w-5 h-5 text-accent-bitcoin" />
+            Activation History
+          </h3>
+          <p className="text-sm text-dark-500 dark:text-dark-400 mt-1">
+            View your complete activation timeline and statistics
+          </p>
+        </div>
+        <div className="p-4 sm:p-6">
+          <ActivationHistoryTimeline />
         </div>
       </motion.div>
 
@@ -371,7 +453,7 @@ const UserProfile: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.55 }}
       >
         <button
           onClick={handleLogout}
@@ -392,7 +474,9 @@ const UserProfile: React.FC = () => {
         isOpen={showPackageModal}
         onClose={() => setShowPackageModal(false)}
         onSuccess={handleActivationSuccess}
-        userBalance={profile?.amount || 0}
+        userBalance={availableBalance}
+        isReactivation={needsReactivation}
+        commissionCount={commissionCount}
       />
     </div>
   );

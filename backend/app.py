@@ -8,6 +8,8 @@ from routes.user import user_bp
 from routes.team import team_bp
 from routes.meetings import meetings_bp
 from routes.package import package_bp
+from routes.activation_history import activation_history_bp
+from routes.activation_requests import activation_requests_bp
 from utils.rate_limiter import init_limiter
 import os
 from dotenv import load_dotenv
@@ -79,6 +81,8 @@ app.register_blueprint(user_bp)
 app.register_blueprint(team_bp)
 app.register_blueprint(meetings_bp)
 app.register_blueprint(package_bp)
+app.register_blueprint(activation_history_bp)
+app.register_blueprint(activation_requests_bp)
 
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5000))

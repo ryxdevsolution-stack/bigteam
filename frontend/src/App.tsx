@@ -16,6 +16,7 @@ const CustomerOverview = lazy(() => import('./pages/admin/CustomerOverview'))
 const AdManagement = lazy(() => import('./components/dashboard/AdManagement'))
 const MeetingManagement = lazy(() => import('./pages/admin/MeetingManagement'))
 const PackageManagement = lazy(() => import('./pages/admin/PackageManagement'))
+const ActivationRequests = lazy(() => import('./pages/admin/ActivationRequests'))
 const AdminProfile = lazy(() => import('./pages/admin/AdminProfile'))
 
 // Lazy load user components
@@ -60,6 +61,7 @@ function App() {
               <Route path="ads" element={<AdManagement />} />
               <Route path="meetings" element={<MeetingManagement />} />
               <Route path="packages" element={<PackageManagement />} />
+              <Route path="activation-requests" element={<ActivationRequests />} />
               <Route path="tree" element={<UserTreeView />} />
               <Route path="profile" element={<AdminProfile />} />
               <Route index element={<Navigate to="dashboard" />} />

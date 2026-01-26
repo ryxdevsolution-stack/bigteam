@@ -435,7 +435,7 @@ const UserTreeView: React.FC = memo(() => {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 shadow-lg"
+        className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 border border-gray-200 dark:border-dark-700"
       >
         <div className="flex flex-col gap-3 sm:gap-4">
           {/* Title Row */}
@@ -444,7 +444,7 @@ const UserTreeView: React.FC = memo(() => {
               <h1 className="text-base sm:text-2xl md:text-3xl font-bold text-dark-900 dark:text-white mb-0.5 sm:mb-2">
                 Team Linear Chain
               </h1>
-              <p className="text-[0.65rem] sm:text-sm md:text-base text-dark-600 dark:text-dark-300">
+              <p className="text-[0.65rem] sm:text-sm md:text-base text-gray-500 dark:text-gray-400">
                 Commission chain by package
               </p>
             </div>
@@ -452,7 +452,7 @@ const UserTreeView: React.FC = memo(() => {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="px-2.5 py-1.5 sm:px-4 sm:py-2 md:py-3 rounded-lg bg-accent-bitcoin hover:bg-accent-bitcoin/90 text-white text-xs sm:text-sm md:text-base font-semibold transition-all flex items-center gap-1 sm:gap-2 shadow-lg disabled:opacity-50"
+              className="px-2.5 py-1.5 sm:px-4 sm:py-2 md:py-3 rounded-lg bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 text-dark-900 dark:text-white text-xs sm:text-sm md:text-base font-semibold transition-all flex items-center gap-1 sm:gap-2 disabled:opacity-50 border border-gray-200 dark:border-dark-600"
             >
               <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden xs:inline">Refresh</span>
@@ -460,13 +460,13 @@ const UserTreeView: React.FC = memo(() => {
           </div>
 
           {/* View Mode Toggle - Full width on mobile with better visibility */}
-          <div className="flex rounded-xl bg-light-100 dark:bg-dark-700 p-1 gap-1">
+          <div className="flex rounded-lg bg-gray-100 dark:bg-dark-700 p-1 gap-1">
             <button
               onClick={() => setViewMode('packages')}
               className={`flex-1 px-3 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
                 viewMode === 'packages'
-                  ? 'bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white shadow-md'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-dark-600/50'
+                  ? 'bg-dark-900 dark:bg-white text-white dark:text-dark-900'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <Package className="w-4 h-4 sm:w-4 sm:h-4" />
@@ -476,8 +476,8 @@ const UserTreeView: React.FC = memo(() => {
               onClick={() => setViewMode('chain')}
               className={`flex-1 px-3 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
                 viewMode === 'chain'
-                  ? 'bg-gradient-to-r from-accent-bitcoin to-accent-orange text-white shadow-md'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-dark-600/50'
+                  ? 'bg-dark-900 dark:bg-white text-white dark:text-dark-900'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <LinkIcon className="w-4 h-4 sm:w-4 sm:h-4" />
@@ -489,26 +489,26 @@ const UserTreeView: React.FC = memo(() => {
 
       {/* Stats Cards - Fully Responsive */}
       <div className="grid grid-cols-3 gap-1.5 sm:gap-2 md:gap-3">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/30 rounded-lg p-2.5 sm:p-3">
+        <div className="bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-600 rounded-lg p-2.5 sm:p-3">
           <div className="flex items-center justify-between">
-            <span className="text-[0.65rem] sm:text-xs text-blue-600 dark:text-blue-400">Total Users</span>
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
+            <span className="text-[0.65rem] sm:text-xs text-gray-600 dark:text-gray-400">Total Users</span>
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-base sm:text-lg font-semibold text-dark-900 dark:text-white mt-0.5 sm:mt-1">{totalUsers}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-lg p-2.5 sm:p-3">
+        <div className="bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-600 rounded-lg p-2.5 sm:p-3">
           <div className="flex items-center justify-between">
-            <span className="text-[0.65rem] sm:text-xs text-emerald-600 dark:text-emerald-400">Active</span>
-            <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+            <span className="text-[0.65rem] sm:text-xs text-gray-600 dark:text-gray-400">Active</span>
+            <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-base sm:text-lg font-semibold text-dark-900 dark:text-white mt-0.5 sm:mt-1">{activeCount}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-100 dark:border-purple-800/30 rounded-lg p-2.5 sm:p-3">
+        <div className="bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-600 rounded-lg p-2.5 sm:p-3">
           <div className="flex items-center justify-between">
-            <span className="text-[0.65rem] sm:text-xs text-purple-600 dark:text-purple-400">Completed</span>
-            <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+            <span className="text-[0.65rem] sm:text-xs text-gray-600 dark:text-gray-400">Completed</span>
+            <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-base sm:text-lg font-semibold text-dark-900 dark:text-white mt-0.5 sm:mt-1">{completedCount}</p>
         </div>
@@ -544,10 +544,10 @@ const UserTreeView: React.FC = memo(() => {
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${
                         group.package_id
-                          ? 'bg-gradient-to-br from-accent-bitcoin to-accent-orange'
+                          ? 'bg-dark-900 dark:bg-white'
                           : 'bg-gray-200 dark:bg-gray-700'
                       }`}>
-                        <Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                        <Package className={`w-4 h-4 sm:w-5 sm:h-5 ${group.package_id ? 'text-white dark:text-dark-900' : 'text-gray-500'}`} />
                       </div>
                       <div className="text-left min-w-0 flex-1">
                         <h3 className="font-semibold text-dark-900 dark:text-white text-xs sm:text-sm md:text-base truncate">
@@ -564,18 +564,18 @@ const UserTreeView: React.FC = memo(() => {
                       {/* Mobile: Compact badges */}
                       <div className="flex items-center gap-1 sm:gap-2">
                         {/* Users count - always show */}
-                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 text-[0.65rem] sm:text-xs font-medium whitespace-nowrap">
+                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-300 text-[0.65rem] sm:text-xs font-medium whitespace-nowrap border border-gray-200 dark:border-dark-600">
                           {group.users.length}
                         </span>
                         {/* Active count - show on mobile too */}
                         {group.users.length > 0 && (
                           <>
-                            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-[0.65rem] sm:text-xs font-medium whitespace-nowrap">
+                            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-300 text-[0.65rem] sm:text-xs font-medium whitespace-nowrap border border-gray-200 dark:border-dark-600">
                               <span className="hidden xs:inline">{group.activeCount} </span>
                               <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 inline xs:hidden" />
                               <span className="hidden sm:inline">active</span>
                             </span>
-                            <span className="hidden sm:inline-flex px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 text-xs font-medium whitespace-nowrap">
+                            <span className="hidden sm:inline-flex px-2 py-1 rounded-full bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-300 text-xs font-medium whitespace-nowrap border border-gray-200 dark:border-dark-600">
                               {group.completedCount} done
                             </span>
                           </>
@@ -603,17 +603,17 @@ const UserTreeView: React.FC = memo(() => {
                           {/* Package Summary Stats - Mobile Only */}
                           {group.users.length > 0 && (
                             <div className="sm:hidden grid grid-cols-3 gap-2 mb-3">
-                              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
-                                <p className="text-[0.65rem] text-blue-600 dark:text-blue-400">Total</p>
-                                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{group.users.length}</p>
+                              <div className="bg-gray-50 dark:bg-dark-700/50 rounded-lg p-2 text-center border border-gray-200 dark:border-dark-600">
+                                <p className="text-[0.65rem] text-gray-600 dark:text-gray-400">Total</p>
+                                <p className="text-sm font-bold text-dark-900 dark:text-white">{group.users.length}</p>
                               </div>
-                              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
-                                <p className="text-[0.65rem] text-emerald-600 dark:text-emerald-400">Active</p>
-                                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{group.activeCount}</p>
+                              <div className="bg-gray-50 dark:bg-dark-700/50 rounded-lg p-2 text-center border border-gray-200 dark:border-dark-600">
+                                <p className="text-[0.65rem] text-gray-600 dark:text-gray-400">Active</p>
+                                <p className="text-sm font-bold text-dark-900 dark:text-white">{group.activeCount}</p>
                               </div>
-                              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 text-center">
-                                <p className="text-[0.65rem] text-purple-600 dark:text-purple-400">Done</p>
-                                <p className="text-sm font-bold text-purple-700 dark:text-purple-300">{group.completedCount}</p>
+                              <div className="bg-gray-50 dark:bg-dark-700/50 rounded-lg p-2 text-center border border-gray-200 dark:border-dark-600">
+                                <p className="text-[0.65rem] text-gray-600 dark:text-gray-400">Done</p>
+                                <p className="text-sm font-bold text-dark-900 dark:text-white">{group.completedCount}</p>
                               </div>
                             </div>
                           )}
@@ -927,17 +927,17 @@ const UserTreeView: React.FC = memo(() => {
       {/* Legend - Responsive */}
       <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[0.65rem] sm:text-xs text-gray-500 dark:text-gray-400 py-1 sm:py-2">
         <div className="flex items-center gap-1 sm:gap-1.5">
-          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500" />
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
           <span>Active</span>
         </div>
         <div className="flex items-center gap-1 sm:gap-1.5">
-          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-400" />
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-600 dark:bg-gray-400" />
           <span>Completed</span>
         </div>
         <div className="flex items-center gap-1 sm:gap-1.5">
           <div className="flex items-center">
-            <div className="w-3 sm:w-4 h-0.5 bg-emerald-400 rounded" />
-            <div className="w-0 h-0 border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent border-l-[4px] border-l-emerald-400" />
+            <div className="w-3 sm:w-4 h-0.5 bg-gray-400 dark:bg-gray-500 rounded" />
+            <div className="w-0 h-0 border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent border-l-[4px] border-l-gray-400 dark:border-l-gray-500" />
           </div>
           <span>Commission Flow</span>
         </div>

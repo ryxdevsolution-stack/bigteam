@@ -36,7 +36,8 @@
       "Bash(PGPASSWORD='Ryx@2025' psql:*)",
       "Bash(npm run lint:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(jq:*)"
     ],
     "deny": [],
     "ask": []
