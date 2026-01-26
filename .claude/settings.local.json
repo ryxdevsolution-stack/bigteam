@@ -34,7 +34,9 @@
       "Bash(git rm:*)",
       "SlashCommand(/performance-check)",
       "Bash(PGPASSWORD='Ryx@2025' psql:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

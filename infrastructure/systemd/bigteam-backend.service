@@ -1,0 +1,16 @@
+[Unit]
+Description=BigTeam Backend API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bigteam/backend
+Environment="PATH=/var/www/bigteam/backend/venv/bin"
+EnvironmentFile=/var/www/bigteam/backend/.env
+ExecStart=/var/www/bigteam/backend/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

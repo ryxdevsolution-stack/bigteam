@@ -256,6 +256,19 @@ CREATE TABLE mlm_settings (
 
 ### Running in Development Mode
 
+#### Option 1: Run Both Frontend and Backend with Single Command (Recommended)
+
+```bash
+# From root directory
+npm run dev
+```
+
+This will start both:
+- Backend on http://localhost:5000
+- Frontend on http://localhost:3000
+
+#### Option 2: Run Separately
+
 1. **Start Backend**
 ```bash
 cd backend
@@ -273,6 +286,22 @@ npm run dev
 3. **Start Redis Cache**
 ```bash
 docker run -d -p 6379:6379 redis:alpine
+```
+
+### Additional Commands
+
+```bash
+# Install all dependencies (root, frontend, backend)
+npm run install:all
+
+# Build frontend for production
+npm run build
+
+# Run frontend linting
+npm run lint:frontend
+
+# Run frontend type checking
+npm run typecheck
 ```
 
 ### API Endpoints

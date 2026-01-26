@@ -35,6 +35,10 @@ frontend/.env.local
 frontend/.env.*.local
 frontend/*.log
 
+# Root node_modules (for concurrently)
+node_modules/
+package-lock.json
+
 # Environment Variables - CRITICAL: Never commit secrets!
 .env
 .env.local
@@ -77,3 +81,4 @@ migrations/
 *.key
 *.cert
 secrets/
+myenv

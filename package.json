@@ -1,0 +1,24 @@
+{
+  "name": "bigteam",
+  "version": "1.0.0",
+  "description": "BigTeam Platform - Community Engagement Application",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && myenv\\Scripts\\python app.py",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt",
+    "build": "cd frontend && npm run build",
+    "lint:frontend": "cd frontend && npm run lint",
+    "typecheck": "cd frontend && npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "bigteam",
+    "community",
+    "platform"
+  ],
+  "author": "",
+  "license": "ISC"
+}
