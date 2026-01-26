@@ -76,7 +76,7 @@ export const authService = {
   logout: async (): Promise<void> => {
     try {
       // Call backend logout (optional - for token blacklisting)
-      await api.post('/auth/logout')
+      await api.post('/auth/logout', {})
     } catch (error) {
       // Ignore errors - we're logging out anyway
     } finally {

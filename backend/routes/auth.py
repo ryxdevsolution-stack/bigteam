@@ -4,7 +4,7 @@ Implements JWT-based authentication with role-based access control
 """
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
-from models.user_model import create_user, get_user_by_email, get_all_users, get_users_paginated, update_user, delete_user, get_user_by_id
+from models.user_model import create_user, get_user_by_email, get_user_by_username, get_all_users, get_users_paginated, update_user, delete_user, get_user_by_id
 from services.team_service import TeamService
 from utils.auth import generate_tokens, verify_token, refresh_access_token, token_required, admin_required, get_current_user_id, blacklist_token, get_token_from_header
 from utils.validators import (
@@ -118,22 +118,28 @@ def login():
     if not data:
         return jsonify({'error': 'Request body required'}), 400
 
-    # Validate required fields
-    is_valid, result = validate_email(data.get('email', ''))
-    if not is_valid:
-        return jsonify({'error': 'Invalid email or password'}), 401
-    email = result
+    # Get login identifier (can be email or username)
+    login_id = data.get('email', '').strip()
+    if not login_id:
+        return jsonify({'error': 'Email or username is required'}), 401
 
     password = data.get('password', '')
     if not password:
-        return jsonify({'error': 'Invalid email or password'}), 401
+        return jsonify({'error': 'Invalid credentials'}), 401
 
-    # Fetch user by email
-    user = get_user_by_email(email)
+    # Try to fetch user by email first, then by username
+    user = None
+    if '@' in login_id:
+        is_valid, result = validate_email(login_id)
+        if is_valid:
+            user = get_user_by_email(result)
+
+    if not user:
+        user = get_user_by_username(login_id)
 
     # Check password
     if not user or not bcrypt.check_password_hash(user['password_hash'], password):
-        return jsonify({'error': 'Invalid email or password'}), 401
+        return jsonify({'error': 'Invalid credentials'}), 401
 
     # Check if user is active
     if not user.get('is_active', True):

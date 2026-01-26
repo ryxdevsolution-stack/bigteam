@@ -66,7 +66,8 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
       return;
     }
 
-    if (userBalance < selectedPackage.amount) {
+    // For reactivation, skip balance check - admin will review the request
+    if (!isReactivation && userBalance < selectedPackage.amount) {
       setError(`Insufficient balance. You need ₹${selectedPackage.amount.toLocaleString()} but have ₹${userBalance.toLocaleString()}`);
       return;
     }
@@ -75,7 +76,7 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
     setError(null);
 
     try {
-      // If this is a reactivation, submit a request for admin approval
+      // If this is a reactivation, submit a request for admin approval (no balance check)
       if (isReactivation) {
         const response = await activationRequestService.submitRequest(selectedPackage.id);
 
@@ -215,16 +216,18 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                 {packages.map((pkg) => {
                   const isSelected = selectedPackage?.id === pkg.id;
                   const canAfford = userBalance >= pkg.amount;
+                  // For reactivation, allow selecting any package (no balance check)
+                  const isDisabled = !isReactivation && !canAfford;
 
                   return (
                     <button
                       key={pkg.id}
                       onClick={() => setSelectedPackage(pkg)}
-                      disabled={!canAfford}
+                      disabled={isDisabled}
                       className={`w-full p-4 rounded-lg border transition-all text-left ${
                         isSelected
                           ? 'border-dark-900 dark:border-white bg-gray-100 dark:bg-dark-700'
-                          : canAfford
+                          : !isDisabled
                           ? 'border-gray-200 dark:border-dark-600 hover:border-gray-400 dark:hover:border-dark-500'
                           : 'border-gray-200 dark:border-dark-600 opacity-50 cursor-not-allowed'
                       }`}
@@ -253,7 +256,7 @@ const PackageSelectionModal: React.FC<PackageSelectionModalProps> = ({
                               <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-dark-600 text-gray-700 dark:text-gray-300 rounded">
                                 {pkg.commission_percentage}% commission
                               </span>
-                              {!canAfford && (
+                              {!isReactivation && !canAfford && (
                                 <span className="text-xs px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
                                   Insufficient balance
                                 </span>

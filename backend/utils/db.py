@@ -18,8 +18,8 @@ load_dotenv()
 # =============================================================================
 # Pool sizing based on: workers × threads × 2 buffer
 # With 4 workers × 8 threads = 32 concurrent, we need ~64-100 connections
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", 10))
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", 100))
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", 2))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", 10))
 DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", 10))
 
 # Create a thread-safe connection pool for better performance
