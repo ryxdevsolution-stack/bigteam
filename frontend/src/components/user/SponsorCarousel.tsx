@@ -92,12 +92,12 @@ const SponsorCarousel: React.FC = memo(() => {
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 mb-4 sm:mb-6">
           <img
             src="/logo.png"
-            alt="BigTeam"
+            alt="BigTreat"
             className="w-full h-full object-contain drop-shadow-2xl"
           />
         </div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-accent-bitcoin via-accent-orange to-accent-gold bg-clip-text text-transparent mb-2">
-          BigTeam
+          BigTreat
         </h1>
         <p className="text-sm sm:text-base md:text-lg text-dark-600 dark:text-dark-300 font-medium">
           Your Community Platform

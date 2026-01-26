@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
       {/* Page Header */}
       <div className="mb-4 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-900 dark:text-white mb-2">Dashboard Overview</h1>
-        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-400">Welcome back! Here's what's happening with BigTeam today.</p>
+        <p className="text-sm sm:text-base text-dark-600 dark:text-dark-400">Welcome back! Here's what's happening with BigTreat today.</p>
       </div>
 
       {/* Metric Cards */}

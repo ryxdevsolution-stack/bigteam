@@ -263,7 +263,7 @@ const ContentFeed: React.FC = () => {
           <div className="absolute bottom-16 lg:bottom-4 left-0 right-0 p-4 sm:p-6 z-10">
             <div className="mb-2">
               <h2 className="text-white font-bold text-base sm:text-lg mb-1 drop-shadow-lg line-clamp-1">
-                @{currentContent.created_by || 'BigTeam'}
+                @{currentContent.created_by || 'BigTreat'}
               </h2>
               <p className="text-white text-sm sm:text-base drop-shadow-lg line-clamp-2">
                 {currentContent.title}
@@ -331,11 +331,11 @@ const ContentFeed: React.FC = () => {
               <span className="text-white/70 text-xs mt-0.5">Discover</span>
             </button>
 
-            {/* BigTeam Logo */}
+            {/* BigTreat Logo */}
             <div className="flex flex-col items-center justify-center p-1">
               <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-bitcoin via-accent-orange to-accent-gold flex items-center justify-center shadow-2xl border-2 border-white/20">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-2xl"></div>
-                <img src="/logo.png" alt="BigTeam" className="w-10 h-10 object-contain relative z-10" />
+                <img src="/logo.png" alt="BigTreat" className="w-10 h-10 object-contain relative z-10" />
               </div>
             </div>
 

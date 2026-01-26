@@ -64,11 +64,11 @@ const UserSidebar: React.FC = () => {
           className="flex items-center space-x-3"
         >
           <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center">
-            <img src="/logo.png" alt="BigTeam" className="w-full h-full object-contain" />
+            <img src="/logo.png" alt="BigTreat" className="w-full h-full object-contain" />
           </div>
           {!isCollapsed && (
             <div>
-              <h1 className="text-base sm:text-lg md:text-xl font-bold bg-gradient-to-r from-accent-orange to-accent-bitcoin bg-clip-text text-transparent">BigTeam</h1>
+              <h1 className="text-base sm:text-lg md:text-xl font-bold bg-gradient-to-r from-accent-orange to-accent-bitcoin bg-clip-text text-transparent">BigTreat</h1>
               <p className="text-[0.625rem] sm:text-xs text-dark-700 dark:text-dark-300 font-medium">User Dashboard</p>
             </div>
           )}

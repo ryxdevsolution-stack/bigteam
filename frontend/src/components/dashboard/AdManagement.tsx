@@ -337,7 +337,7 @@ const AdManagement: React.FC = () => {
                 <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center">
                   <img
                     src="/logo.png"
-                    alt="BigTeam"
+                    alt="BigTreat"
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'drop-shadow(0 0 20px rgba(245, 158, 11, 0.5))',

@@ -79,7 +79,7 @@ def get_feed():
                 "media_type": post[3],
                 "media_url": post[4],
                 "thumbnail_url": post[5] or post[4],
-                "created_by": str(post[6]) if post[6] else "BigTeam",
+                "created_by": str(post[6]) if post[6] else "BigTreat",
                 "created_at": post[7].isoformat() if post[7] else datetime.now().isoformat(),
                 "likes_count": post[8] or 0,
                 "shares_count": post[9] or 0,

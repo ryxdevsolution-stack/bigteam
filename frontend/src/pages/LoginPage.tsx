@@ -201,7 +201,7 @@ const LoginPage: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-amber-600/20 blur-3xl rounded-full scale-150"></div>
                   <img
                     src="/logo.png"
-                    alt="BigTeam"
+                    alt="BigTreat"
                     className="relative w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-2xl transform hover:scale-105 transition-transform duration-300 mx-auto"
                   />
                 </div>
@@ -212,7 +212,7 @@ const LoginPage: React.FC = () => {
                   className="text-5xl md:text-6xl font-black bg-gradient-to-r from-orange-400 via-amber-500 to-orange-400 bg-clip-text text-transparent text-center mt-3"
                   style={{ lineHeight: '1', paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
                 >
-                  BigTeam
+                  BigTreat
                 </motion.h1>
               </motion.div>
               <h2 className="text-xl md:text-2xl font-light text-gray-300 mt-4 mb-2">
@@ -400,7 +400,7 @@ const LoginPage: React.FC = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-700">
-        © 2024 BigTeam. Empowering communities worldwide.
+        © 2024 BigTreat. Empowering communities worldwide.
       </div>
     </div>
   );

@@ -347,7 +347,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ onUploadComplete, onCancel })
                 <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center">
                   <img
                     src="/logo.png"
-                    alt="BigTeam"
+                    alt="BigTreat"
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'drop-shadow(0 0 20px rgba(245, 158, 11, 0.5))',
@@ -401,7 +401,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ onUploadComplete, onCancel })
               {/* Text Content */}
               <div className="text-center space-y-2">
                 <p className="text-base sm:text-lg font-bold text-dark-800 dark:text-white">
-                  Uploading to BigTeam
+                  Uploading to BigTreat
                 </p>
                 <p className="text-xs sm:text-sm text-dark-600 dark:text-dark-400">
                   Please wait while we process your media...

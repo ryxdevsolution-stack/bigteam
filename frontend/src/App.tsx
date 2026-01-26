@@ -39,7 +39,7 @@ const PageLoader = () => (
 
 function App() {
   useEffect(() => {
-    document.title = 'BigTeam CRM - Community Platform'
+    document.title = 'BigTreat - Community Platform'
   }, [])
 
   return (

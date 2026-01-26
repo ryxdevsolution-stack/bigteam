@@ -100,7 +100,7 @@ const TopBar: React.FC = () => {
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium">{user.name || user.username || 'Admin User'}</p>
-                <p className="text-xs text-dark-400">{user.email || 'admin@bigteam.net'}</p>
+                <p className="text-xs text-dark-400">{user.email || 'admin@bigtreat.net'}</p>
               </div>
               <ChevronDown className={`w-4 h-4 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
