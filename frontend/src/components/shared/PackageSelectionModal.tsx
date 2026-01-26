@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Package, CheckCircle, Loader2, AlertCircle, RefreshCw, Sparkles, Award } from 'lucide-react';
+import { X, Package, CheckCircle, Loader2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 import packageService, { Package as PackageType } from '../../services/packageService';
 import teamService from '../../services/teamService';
 import activationRequestService from '../../services/activationRequestService';
