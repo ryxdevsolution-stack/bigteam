@@ -2,7 +2,6 @@
 
 # BigTeam Deployment Script for Hostinger VPS
 # Domain: bigtreat.in
-# VPS IP: 88.222.241.250
 
 set -e
 

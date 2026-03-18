@@ -194,9 +194,9 @@ const ContentManagement: React.FC = () => {
 
         {/* Tabs and Controls */}
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Tabs */}
-            <div className="flex gap-1 sm:gap-2 overflow-x-auto w-full sm:w-auto">
+            <div className="flex gap-1 sm:gap-2 overflow-x-auto w-full lg:w-auto">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -224,7 +224,7 @@ const ContentManagement: React.FC = () => {
             </div>
 
             {/* Filters and View Toggle */}
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
               {/* Status Filter */}
               <select
                 value={filterStatus}

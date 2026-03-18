@@ -18,6 +18,9 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Limit JSON body size to 16KB (file uploads handled separately with higher limits)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024
+
 # Initialize rate limiter for security
 limiter = init_limiter(app)
 
@@ -62,9 +65,13 @@ def set_security_headers(response):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     # Content Security Policy
     response.headers['Content-Security-Policy'] = "default-src 'self'; frame-ancestors 'none'"
-    # HSTS (only in production)
+    # HSTS (only in production) — preload enables browser HSTS preload list inclusion
     if FLASK_ENV == 'production':
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+    # Restrict browser feature access
+    response.headers['Permissions-Policy'] = (
+        'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=()'
+    )
     return response
 
 # Health check endpoint for Render

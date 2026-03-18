@@ -1,6 +1,7 @@
 import React, { useState, useEffect, memo, useMemo, useRef, useCallback } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { CarouselSkeleton } from '../shared/Skeleton';
+import { safeWindowOpen } from '../../utils/url';
 
 const SponsorCarousel: React.FC = memo(() => {
   const { homeData, homeDataLoading } = useData();
@@ -73,11 +74,9 @@ const SponsorCarousel: React.FC = memo(() => {
     }
   };
 
-  // Handle ad click
+  // Handle ad click — validates URL scheme before opening (blocks javascript:, data: URIs)
   const handleAdClick = () => {
-    if (currentAd?.link_url) {
-      window.open(currentAd.link_url, '_blank');
-    }
+    safeWindowOpen(currentAd?.link_url);
   };
 
   // Loading state

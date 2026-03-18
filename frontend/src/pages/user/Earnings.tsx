@@ -145,17 +145,17 @@ const Earnings: React.FC = () => {
                 key={commission.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-center justify-between p-4 bg-light-100 dark:bg-dark-700 rounded-xl hover:shadow-md transition-all"
+                className="flex items-center justify-between gap-3 p-4 bg-light-100 dark:bg-dark-700 rounded-xl hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30">
-                    <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="p-2 sm:p-3 rounded-full bg-green-100 dark:bg-green-900/30 shrink-0">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
                   </div>
-                  <div>
-                    <p className="font-semibold text-dark-900 dark:text-white">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-dark-900 dark:text-white truncate">
                       Commission from {commission.payer_username}
                     </p>
-                    <p className="text-sm text-dark-600 dark:text-dark-300">
+                    <p className="text-xs sm:text-sm text-dark-600 dark:text-dark-300 truncate">
                       Level {commission.commission_level} • {commission.payer_email}
                     </p>
                     <p className="text-xs text-dark-500 dark:text-dark-400 mt-1">
@@ -163,8 +163,8 @@ const Earnings: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="text-right shrink-0">
+                  <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
                     +{commission.amount.toFixed(2)}
                   </p>
                   <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${

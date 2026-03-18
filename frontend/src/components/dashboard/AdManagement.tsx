@@ -157,7 +157,7 @@ const AdManagement: React.FC = () => {
     <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-dark-800 dark:text-white">
+        <h2 className="text-lg sm:text-2xl font-bold text-dark-800 dark:text-white">
           Advertisement Management
         </h2>
         <button
@@ -480,7 +480,7 @@ const AdManagement: React.FC = () => {
       )}
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
+      <div className="lg:hidden space-y-4">
         {ads.length === 0 ? (
           <div className="bg-white dark:bg-dark-800 rounded-xl p-8 text-center text-gray-500">
             No advertisements found
@@ -595,7 +595,7 @@ const AdManagement: React.FC = () => {
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block bg-white dark:bg-dark-800 rounded-xl shadow-lg overflow-hidden">
+      <div className="hidden lg:block bg-white dark:bg-dark-800 rounded-xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-dark-700">

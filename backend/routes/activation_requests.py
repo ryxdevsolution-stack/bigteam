@@ -3,20 +3,17 @@ Activation Requests API Routes - Admin Approval Workflow
 
 Endpoints for users to submit reactivation requests and admins to approve/reject them.
 """
+import logging
 
 from flask import Blueprint, request, jsonify
-from utils.auth import token_required, get_current_user_id
+from utils.auth import token_required, admin_required, get_current_user_id
+from utils.validators import validate_uuid
+from utils.rate_limiter import limiter
 from services.activation_request_service import ActivationRequestService
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+
+logger = logging.getLogger(__name__)
 
 activation_requests_bp = Blueprint('activation_requests', __name__)
-
-# Rate limiter
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per hour"]
-)
 
 
 @activation_requests_bp.route('/api/activation-requests/submit', methods=['POST'])
@@ -47,8 +44,10 @@ def submit_reactivation_request():
             return jsonify({'error': 'package_id is required'}), 400
 
         package_id = data['package_id']
+        is_valid, error = validate_uuid(package_id)
+        if not is_valid:
+            return jsonify({'error': 'Invalid package_id format'}), 400
 
-        # Create the request
         result = ActivationRequestService.create_reactivation_request(
             current_user_id,
             package_id
@@ -60,8 +59,8 @@ def submit_reactivation_request():
             return jsonify(result), 400
 
     except Exception as e:
-        print(f"[ERROR] Submit request failed: {e}")
-        return jsonify({'error': 'Failed to submit request', 'details': str(e)}), 500
+        logger.error("Submit activation request failed", exc_info=True)
+        return jsonify({'error': 'Failed to submit request'}), 500
 
 
 @activation_requests_bp.route('/api/activation-requests/my-request', methods=['GET'])
@@ -84,8 +83,8 @@ def get_my_pending_request():
         return jsonify(result), 200
 
     except Exception as e:
-        print(f"[ERROR] Get my request failed: {e}")
-        return jsonify({'error': 'Failed to get request', 'details': str(e)}), 500
+        logger.error("Get user pending request failed", exc_info=True)
+        return jsonify({'error': 'Failed to get request'}), 500
 
 
 @activation_requests_bp.route('/api/activation-requests/<request_id>/cancel', methods=['POST'])
@@ -102,6 +101,10 @@ def cancel_my_request(request_id):
         }
     """
     try:
+        is_valid, error = validate_uuid(request_id)
+        if not is_valid:
+            return jsonify({'error': 'Invalid request ID format'}), 400
+
         current_user_id = get_current_user_id()
         result = ActivationRequestService.cancel_request(request_id, current_user_id)
 
@@ -111,8 +114,8 @@ def cancel_my_request(request_id):
             return jsonify(result), 400
 
     except Exception as e:
-        print(f"[ERROR] Cancel request failed: {e}")
-        return jsonify({'error': 'Failed to cancel request', 'details': str(e)}), 500
+        logger.error("Cancel activation request failed", exc_info=True)
+        return jsonify({'error': 'Failed to cancel request'}), 500
 
 
 # ============================================================================
@@ -122,6 +125,7 @@ def cancel_my_request(request_id):
 @activation_requests_bp.route('/api/activation-requests/pending', methods=['GET'])
 @limiter.limit("30 per minute")
 @token_required
+@admin_required
 def get_all_pending_requests():
     """
     Get all pending activation requests (Admin only)
@@ -134,25 +138,6 @@ def get_all_pending_requests():
         }
     """
     try:
-        current_user_id = get_current_user_id()
-
-        # Verify admin role
-        from utils.db import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT role FROM users WHERE id = %s", (current_user_id,))
-        user = cur.fetchone()
-
-        if not user or user[0] != 'admin':
-            cur.close()
-            conn.close()
-            return jsonify({'error': 'Admin access required'}), 403
-
-        cur.close()
-        conn.close()
-
-        # Get all pending requests
         result = ActivationRequestService.get_all_pending_requests()
 
         if result['success']:
@@ -161,13 +146,14 @@ def get_all_pending_requests():
             return jsonify(result), 500
 
     except Exception as e:
-        print(f"[ERROR] Get pending requests failed: {e}")
-        return jsonify({'error': 'Failed to get requests', 'details': str(e)}), 500
+        logger.error("Get all pending requests failed", exc_info=True)
+        return jsonify({'error': 'Failed to get requests'}), 500
 
 
 @activation_requests_bp.route('/api/activation-requests/<request_id>/approve', methods=['POST'])
 @limiter.limit("10 per minute")
 @token_required
+@admin_required
 def approve_activation_request(request_id):
     """
     Admin approves an activation request
@@ -179,25 +165,11 @@ def approve_activation_request(request_id):
         }
     """
     try:
+        is_valid, error = validate_uuid(request_id)
+        if not is_valid:
+            return jsonify({'error': 'Invalid request ID format'}), 400
+
         current_user_id = get_current_user_id()
-
-        # Verify admin role
-        from utils.db import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT role FROM users WHERE id = %s", (current_user_id,))
-        user = cur.fetchone()
-
-        if not user or user[0] != 'admin':
-            cur.close()
-            conn.close()
-            return jsonify({'error': 'Admin access required'}), 403
-
-        cur.close()
-        conn.close()
-
-        # Approve the request
         result = ActivationRequestService.approve_request(request_id, current_user_id)
 
         if result['success']:
@@ -206,13 +178,14 @@ def approve_activation_request(request_id):
             return jsonify(result), 400
 
     except Exception as e:
-        print(f"[ERROR] Approve request failed: {e}")
-        return jsonify({'error': 'Failed to approve request', 'details': str(e)}), 500
+        logger.error("Approve activation request failed", exc_info=True)
+        return jsonify({'error': 'Failed to approve request'}), 500
 
 
 @activation_requests_bp.route('/api/activation-requests/<request_id>/reject', methods=['POST'])
 @limiter.limit("10 per minute")
 @token_required
+@admin_required
 def reject_activation_request(request_id):
     """
     Admin rejects an activation request
@@ -229,29 +202,14 @@ def reject_activation_request(request_id):
         }
     """
     try:
+        is_valid, error = validate_uuid(request_id)
+        if not is_valid:
+            return jsonify({'error': 'Invalid request ID format'}), 400
+
         current_user_id = get_current_user_id()
-
-        # Verify admin role
-        from utils.db import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT role FROM users WHERE id = %s", (current_user_id,))
-        user = cur.fetchone()
-
-        if not user or user[0] != 'admin':
-            cur.close()
-            conn.close()
-            return jsonify({'error': 'Admin access required'}), 403
-
-        cur.close()
-        conn.close()
-
-        # Get rejection reason
         data = request.get_json() or {}
         reason = data.get('reason', 'No reason provided')
 
-        # Reject the request
         result = ActivationRequestService.reject_request(request_id, current_user_id, reason)
 
         if result['success']:
@@ -260,13 +218,14 @@ def reject_activation_request(request_id):
             return jsonify(result), 400
 
     except Exception as e:
-        print(f"[ERROR] Reject request failed: {e}")
-        return jsonify({'error': 'Failed to reject request', 'details': str(e)}), 500
+        logger.error("Reject activation request failed", exc_info=True)
+        return jsonify({'error': 'Failed to reject request'}), 500
 
 
 @activation_requests_bp.route('/api/activation-requests/pending-count', methods=['GET'])
 @limiter.limit("60 per minute")
 @token_required
+@admin_required
 def get_pending_count():
     """
     Get count of pending requests (for notification badge)
@@ -277,29 +236,9 @@ def get_pending_count():
         }
     """
     try:
-        current_user_id = get_current_user_id()
-
-        # Verify admin role
-        from utils.db import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT role FROM users WHERE id = %s", (current_user_id,))
-        user = cur.fetchone()
-
-        if not user or user[0] != 'admin':
-            cur.close()
-            conn.close()
-            return jsonify({'error': 'Admin access required'}), 403
-
-        cur.close()
-        conn.close()
-
-        # Get count
         count = ActivationRequestService.get_pending_count()
-
         return jsonify({'count': count}), 200
 
     except Exception as e:
-        print(f"[ERROR] Get pending count failed: {e}")
-        return jsonify({'error': 'Failed to get count', 'details': str(e)}), 500
+        logger.error("Get pending count failed", exc_info=True)
+        return jsonify({'error': 'Failed to get count'}), 500

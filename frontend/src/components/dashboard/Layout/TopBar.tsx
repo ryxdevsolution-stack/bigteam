@@ -3,6 +3,7 @@ import { Search, User, ChevronDown, Moon, Sun, Settings, LogOut } from 'lucide-r
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { tokenUtils, cacheUtils } from '../../../services/api';
+import authService from '../../../services/authService';
 
 const TopBar: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -49,11 +50,9 @@ const TopBar: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    // Clear all auth tokens and cached data
-    tokenUtils.clearAll();
-    cacheUtils.clearAll();
-    // Force full page reload to reset all React state including DataContext
+  const handleLogout = async () => {
+    // Calls /auth/logout to blacklist the token server-side, then clears local state
+    await authService.logout();
     window.location.href = '/login';
   };
 

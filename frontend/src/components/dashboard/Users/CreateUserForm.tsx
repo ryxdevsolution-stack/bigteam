@@ -335,12 +335,6 @@ const CreateUserForm: React.FC<CreateUserFormProps> = ({
     }
 
     try {
-      // Debug: Log the form data being submitted
-      console.log('[CreateUserForm] Submitting user data:', {
-        ...formData,
-        password: '[HIDDEN]'
-      })
-
       await onSubmit(formData)
 
       // Reset form on success

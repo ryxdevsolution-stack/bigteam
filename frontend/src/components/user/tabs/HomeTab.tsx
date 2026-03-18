@@ -4,6 +4,7 @@ import { Calendar, ArrowRight, Image as ImageIcon, Video, Clock, ExternalLink, U
 import SponsorCarousel from '../SponsorCarousel';
 import { useData } from '../../../contexts/DataContext';
 import { HomeContentSkeleton } from '../../shared/Skeleton';
+import { isSafeUrl } from '../../../utils/url';
 
 const HomeTab: React.FC = memo(() => {
   const { homeData, homeDataLoading } = useData();
@@ -277,15 +278,22 @@ const HomeTab: React.FC = memo(() => {
                       )}
                     </div>
                   </div>
-                  <a
-                    href={meeting.zoom_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors shadow-md hover:shadow-lg w-full sm:w-auto"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>Join</span>
-                  </a>
+                  {isSafeUrl(meeting.zoom_link) ? (
+                    <a
+                      href={meeting.zoom_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors shadow-md hover:shadow-lg w-full sm:w-auto"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>Join</span>
+                    </a>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-400 text-white text-xs sm:text-sm font-medium rounded-lg w-full sm:w-auto cursor-not-allowed opacity-60">
+                      <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>Join</span>
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

@@ -25,7 +25,7 @@ const BottomNav: React.FC = () => {
               }`}
               strokeWidth={2}
             />
-            <span className={`text-xs mt-0.5 hidden sm:block ${
+            <span className={`text-[10px] mt-0.5 ${
               isActive('/user/home')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
@@ -47,7 +47,7 @@ const BottomNav: React.FC = () => {
               }`}
               strokeWidth={2}
             />
-            <span className={`text-xs mt-0.5 hidden sm:block ${
+            <span className={`text-[10px] mt-0.5 ${
               isActive('/user/videos')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
@@ -69,7 +69,7 @@ const BottomNav: React.FC = () => {
               }`}
               strokeWidth={2}
             />
-            <span className={`text-xs mt-0.5 hidden sm:block ${
+            <span className={`text-[10px] mt-0.5 ${
               isActive('/user/photos')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
@@ -105,7 +105,7 @@ const BottomNav: React.FC = () => {
               }`}
               strokeWidth={2}
             />
-            <span className={`text-xs mt-0.5 hidden sm:block ${
+            <span className={`text-[10px] mt-0.5 ${
               isActive('/user/meetings')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'
@@ -127,7 +127,7 @@ const BottomNav: React.FC = () => {
               }`}
               strokeWidth={2}
             />
-            <span className={`text-xs mt-0.5 hidden sm:block ${
+            <span className={`text-[10px] mt-0.5 ${
               isActive('/user/earnings')
                 ? 'text-accent-bitcoin dark:text-white font-semibold'
                 : 'text-dark-600 dark:text-white/70'

@@ -420,7 +420,7 @@ const CustomerOverview: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="hidden sm:block bg-white dark:bg-dark-900 rounded-2xl p-4 shadow-lg border border-light-200 dark:border-dark-700"
+        className="bg-white dark:bg-dark-900 rounded-2xl p-4 shadow-lg border border-light-200 dark:border-dark-700"
       >
         <div className="flex flex-col gap-4">
           {/* Action Buttons */}

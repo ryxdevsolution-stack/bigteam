@@ -19,6 +19,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { tokenUtils, cacheUtils } from '../../../services/api';
+import authService from '../../../services/authService';
 
 interface MenuItem {
   id: string;
@@ -198,11 +199,8 @@ const Sidebar: React.FC = () => {
 
                 <div className="border-t border-light-300 dark:border-dark-700">
                   <button
-                    onClick={() => {
-                      // Clear all auth tokens and cached data
-                      tokenUtils.clearAll();
-                      cacheUtils.clearAll();
-                      // Force full page reload to reset all React state
+                    onClick={async () => {
+                      await authService.logout();
                       window.location.href = '/login';
                     }}
                     className="flex items-center space-x-3 w-full p-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group"
