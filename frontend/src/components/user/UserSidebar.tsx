@@ -5,16 +5,13 @@ import {
   User,
   LogOut,
   ChevronDown,
-  Sun,
-  Moon,
-  Palette,
   DollarSign,
   Image,
   Calendar,
   Film
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useTheme } from '../../contexts/ThemeContext';
+import { AnimatedThemeToggler } from '../ui/AnimatedThemeToggler';
 import { tokenUtils, cacheUtils } from '../../services/api';
 import authService from '../../services/authService';
 
@@ -32,8 +29,6 @@ const UserSidebar: React.FC = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const { theme, toggleTheme } = useTheme();
-
   const user = tokenUtils.getUser() || {};
 
   useEffect(() => {
@@ -170,26 +165,10 @@ const UserSidebar: React.FC = () => {
                   <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Profile</span>
                 </Link>
 
-                <button
-                  onClick={() => {
-                    toggleTheme();
-                    setIsProfileDropdownOpen(false);
-                  }}
-                  className="flex items-center space-x-3 w-full p-3 hover:bg-light-100 dark:hover:bg-dark-700 transition-colors text-left"
-                >
-                  <Palette className="w-4 h-4 text-dark-700 dark:text-dark-300" />
+                <div className="flex items-center justify-between w-full px-3 py-1">
                   <span className="text-sm font-medium text-dark-800 dark:text-dark-200">Theme</span>
-                  <span className="ml-auto flex items-center space-x-1">
-                    {theme === 'dark' ? (
-                      <Sun className="w-4 h-4 text-accent-yellow" />
-                    ) : (
-                      <Moon className="w-4 h-4 text-accent-bitcoin" />
-                    )}
-                    <span className="text-xs text-dark-600 dark:text-dark-400">
-                      {theme === 'dark' ? 'Light' : 'Dark'}
-                    </span>
-                  </span>
-                </button>
+                  <AnimatedThemeToggler />
+                </div>
 
                 <div className="border-t border-light-300 dark:border-dark-700">
                   <button
