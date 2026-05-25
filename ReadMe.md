@@ -1,569 +1,338 @@
-# BigTeam Community Platform - Phase 1 CRM Solution
+# BigTreat — MLM Community Platform
 
-A complete community engagement platform built with modern technologies for scalable content management and user interaction.
+> Previously known as **BigTeam**. A multi-level commission platform with content feed, advertisement system, admin-gated reactivation workflow, and full activation history.
 
-## 🏗️ System Architecture
+A production-grade platform combining a TikTok/Instagram-style media feed with an MLM commission engine. Users activate via package purchase, earn commissions through their downline, deactivate at the 2/2 commission cap, and submit reactivation requests to an admin approval queue.
+
+---
+
+## Why This README Reads As Problems → Solutions
+
+This codebase has been iterated on heavily. Rather than list features, this README documents the **problems each system actually solves** — so a new engineer can understand the *why*, not just the *what*. Each section follows:
+
+> **Problem:** what was broken or risky
+> **Solution:** what was built and why
+
+---
+
+## 🧩 Core Domain Problems Solved
+
+### 1. Unsupervised Reactivation → Admin Approval Workflow
+
+**Problem.** Users hitting the 2/2 commission cap could instantly reactivate by clicking a button. No admin oversight, no audit trail, no way to stop bad actors from cycling through positions to game the chain.
+
+**Solution.** A dedicated `activation_requests` table + 7 endpoints under `/api/activation-requests/*`. Reactivation now goes through four states (`pending → approved | rejected | cancelled`) with:
+- DB-level unique partial index — **one pending request per user**, enforced at the database layer
+- Row-level locking at approval time to prevent double-credit race conditions
+- Balance re-check at approval (not just at submission) — balance can change while pending
+- Rejection requires a reason string returned to the user
+
+Code: [`backend/routes/activation_requests.py`](backend/routes/activation_requests.py), [`backend/services/activation_request_service.py`](backend/services/activation_request_service.py), [`frontend/src/pages/admin/ActivationRequests.tsx`](frontend/src/pages/admin/ActivationRequests.tsx).
+
+### 2. Lost Activation History → JSONB Timeline Per User
+
+**Problem.** When a user deactivated and reactivated, their previous position, package, earnings, and dates were overwritten. No way to audit how many cycles a user had been through or how much they'd earned in lifetime.
+
+**Solution.** Added `activation_history JSONB` column to `users` with three **GIN indexes** for fast querying. Each activation snapshots package, position, dates, commissions earned. UI surfaces this as a pulsing-dot timeline in [`ActivationHistoryTimeline.tsx`](frontend/src/components/user/ActivationHistoryTimeline.tsx) — current activation pulses green, history shows as gray.
+
+### 3. Profile Page Hammering the API → Fixed `useEffect` Dependencies
+
+**Problem.** The profile page was firing **hundreds of API calls per second**. Browser laggy, CPU spiking, backend DB queries flooding.
+
+**Root cause.** `useEffect` dependency array included `fetchUserProfile` and `fetchDashboardStats` — both functions are recreated each render, so the effect re-ran every render forever.
+
+**Solution.** Dependency array now contains only `[user.id]` — effect runs once per user-change, not once per render. Result: hundreds of calls/sec → exactly one on mount.
+
+Fix: [`frontend/src/pages/user/Profile.tsx:82-88`](frontend/src/pages/user/Profile.tsx#L82-L88).
+
+### 4. Broken Route Handler Signatures → `get_current_user_id()` Pattern
+
+**Problem.** Every endpoint under `/api/activation-requests/*` was throwing `TypeError: missing 1 required positional argument: 'current_user_id'`. The `@token_required` decorator never passed `current_user_id` as a kwarg, but handlers expected it.
+
+**Solution.** All seven handlers refactored to call `get_current_user_id()` inside the function body. Decorator now only validates the token; the handler reads the identity from request context. This pattern is now consistent across the codebase.
+
+### 5. Multi-Worker Token Logout Doing Nothing → Redis Blacklist
+
+**Problem.** Production runs **8 gunicorn workers × 8 threads = 64 concurrent request handlers**. An in-memory token blacklist (the Flask default) only blacklists in *one* worker — log out on worker 3, and worker 5 still accepts the token. Effectively no logout in production.
+
+**Solution.** Redis-backed token blacklist shared across all workers (see [`render.yaml`](render.yaml) — `REDIS_URL` is required for multi-worker deployment). Logout is now consistent regardless of which worker handles the next request.
+
+### 6. CORS Wildcard + Missing Security Headers → Hardened Defaults
+
+**Problem.** Default Flask exposes the app to clickjacking, MIME sniffing, XSS, mixed-content, and uncontrolled origins.
+
+**Solution.** [`backend/app.py:55-75`](backend/app.py#L55-L75) injects security headers on every response:
+- `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'`
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` (prod only)
+- `Permissions-Policy` blocks camera, mic, geolocation, payment, USB, sensors
+
+CORS is environment-aware: production uses a strict `FRONTEND_URL` allowlist (no wildcards), dev allows `localhost:3000/3001/5173`.
+
+### 7. Unbounded JSON Body → 16KB Cap
+
+**Problem.** A malicious client could POST a 100MB JSON body and exhaust memory.
+
+**Solution.** `MAX_CONTENT_LENGTH = 16KB` for JSON. File uploads are routed through their own handlers with higher, validated limits.
+
+### 8. Brute-Force on Auth → Flask-Limiter on Sensitive Routes
+
+**Problem.** Login and other sensitive endpoints had no rate limiting — vulnerable to credential stuffing.
+
+**Solution.** `init_limiter(app)` applies rate limits to auth and admin endpoints. See [`backend/utils/rate_limiter.py`](backend/utils/rate_limiter.py).
+
+### 9. DB Pool Choking at Scale → Tuned for 1000+ Concurrent
+
+**Problem.** Default SQLAlchemy pool (5 connections) collapses under real load. Symptom: connection-pool-exhausted errors during traffic spikes.
+
+**Solution.** Production pool sized to `min=10, max=100`. Combined with `gunicorn --workers 8 --threads 8 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 --preload`, the deployment supports **~300–500 req/sec** sustained. `max-requests` recycles workers periodically to prevent memory leaks.
+
+### 10. Jarring Dark/Light Toggle → AnimatedThemeToggler
+
+**Problem.** Instant theme switch is visually harsh and looks unpolished.
+
+**Solution.** Built `AnimatedThemeToggler` using the **View Transitions API** for a circular reveal animation that radiates from the toggle button. Graceful fallback for browsers without support.
+
+---
+
+## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend API   │    │   Database      │
-│   React + TS    │◄──►│  Python Flask   │◄──►│   Supabase      │
-│   Admin Panel   │    │   REST API      │    │   PostgreSQL    │
-│   User Portal   │    │   Auth System   │    │   File Storage  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌─────────────────┐              │
-         │              │  Cache Layer    │              │
-         └──────────────│     Redis       │──────────────┘
-                        │   Session/Data  │
-                        └─────────────────┘
-                                 │
-                        ┌─────────────────┐
-                        │  Infrastructure │
-                        │ Docker+K8s+CDN  │
-                        └─────────────────┘
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│      Frontend       │     │     Backend API     │     │      Database       │
+│   React 18 + TS     │◄───►│       Flask         │◄───►│  Supabase Postgres  │
+│   Redux Toolkit     │     │   Port 8000         │     │   (pooler :6543)    │
+│   Tailwind + Framer │     │   8 workers × 8 thr │     │   JSONB + GIN idx   │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+           │                          │                          │
+           │                ┌─────────────────────┐              │
+           └───────────────►│   Redis (required)  │◄─────────────┘
+                            │  Token blacklist    │
+                            │  Rate limit store   │
+                            └─────────────────────┘
 ```
 
-## 🎯 Core Features
+**Why these choices:**
+- **Flask, not FastAPI** — chosen for blueprint-based modularity; each domain (auth, team, packages, activation requests) is its own blueprint.
+- **Supabase (Postgres) over self-hosted** — managed connection pooler, built-in storage for media, free SSL.
+- **Redis is non-optional in production** — multi-worker deployments cannot share in-memory state.
 
-### Admin Panel Features
-- **User Management**: Create users with credentials, manage access levels
-- **Content Management**: Upload/publish videos, images, and advertisements
-- **Advertisement System**: Schedule ads, manage banner rotations
-- **Analytics Dashboard**: Track user engagement, content performance
-- **Real-time Monitoring**: User activity, system health metrics
+---
 
-### User Portal Features
-- **Media Feed**: Instagram/TikTok-style content browsing
-- **Reels/Shorts Player**: Vertical video viewing experience
-- **Social Interactions**: Like, react, and share posts
-- **Profile Management**: Personal settings and activity history
-- **Responsive Design**: Mobile-first approach
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **Framework**: React 18 + TypeScript
-- **State Management**: Redux Toolkit + RTK Query
-- **Styling**: Tailwind CSS + Framer Motion
-- **Build Tool**: Vite
-- **Testing**: Vitest + React Testing Library
-
-### Backend
-- **API Framework**: Python Flask + Flask-RESTful
-- **Authentication**: JWT + Flask-JWT-Extended
-- **Database ORM**: SQLAlchemy
-- **File Upload**: Flask-Upload + Multipart handling
-- **API Documentation**: Flask-RESTX (Swagger)
-
-### Database & Storage
-- **Primary Database**: Supabase (PostgreSQL)
-- **File Storage**: Supabase Storage + CDN
-- **Cache**: Redis (Session + Data caching)
-- **Search**: PostgreSQL Full-Text Search
-
-### Infrastructure
-- **Containerization**: Docker + Docker Compose
-- **Orchestration**: Kubernetes
-- **CI/CD**: GitHub Actions
-- **Monitoring**: Prometheus + Grafana
-- **Load Balancer**: NGINX
-
-## 📁 Project Structure
+## 🗂️ Project Structure
 
 ```
-bigteam-platform/
-├── frontend/                    # React TypeScript Frontend
-│   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── admin/         # Admin-specific components
-│   │   │   ├── user/          # User portal components
-│   │   │   └── shared/        # Common components
-│   │   ├── pages/             # Page components
-│   │   │   ├── admin/         # Admin dashboard pages
-│   │   │   └── user/          # User portal pages
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── store/             # Redux store configuration
-│   │   ├── services/          # API service layer
-│   │   ├── utils/             # Utility functions
-│   │   └── types/             # TypeScript type definitions
-│   ├── public/                # Static assets
-│   └── package.json
-├── backend/                    # Python Flask Backend
-│   ├── app/
-│   │   ├── api/               # API route handlers
-│   │   │   ├── admin/         # Admin endpoints
-│   │   │   ├── user/          # User endpoints
-│   │   │   └── auth/          # Authentication endpoints
-│   │   ├── models/            # Database models
-│   │   ├── services/          # Business logic layer
-│   │   ├── utils/             # Utility functions
-│   │   ├── middleware/        # Custom middleware
-│   │   └── config/            # Configuration files
-│   ├── migrations/            # Database migrations
-│   ├── tests/                 # Backend tests
-│   └── requirements.txt
-├── infrastructure/             # DevOps configuration
-│   ├── docker/                # Docker configurations
-│   ├── kubernetes/            # K8s manifests
-│   ├── nginx/                 # Load balancer config
-│   └── monitoring/            # Prometheus/Grafana setup
-├── docs/                      # Documentation
-└── scripts/                   # Deployment scripts
+bigteam/
+├── backend/                              # Flask backend (port 8000)
+│   ├── app.py                            # Security headers, CORS, blueprints
+│   ├── routes/
+│   │   ├── auth.py                       # JWT login/logout/refresh
+│   │   ├── user.py                       # Profile, dashboard stats
+│   │   ├── team.py                       # MLM tree, downline, commissions
+│   │   ├── package.py                    # Activation packages
+│   │   ├── activation_history.py         # Lifetime activation timeline
+│   │   ├── activation_requests.py        # Admin approval queue
+│   │   ├── post.py, feed.py              # Media feed
+│   │   ├── advertisement.py              # Ad scheduling
+│   │   └── meetings.py                   # Meeting management
+│   ├── services/                         # Business logic
+│   ├── models/                           # SQLAlchemy models
+│   ├── utils/rate_limiter.py             # Flask-Limiter setup
+│   └── migrations/                       # *_migration.py scripts
+├── frontend/                             # React + Vite (port 3000)
+│   └── src/
+│       ├── pages/
+│       │   ├── admin/                    # 9 admin screens
+│       │   │   └── ActivationRequests.tsx  # Approval queue UI
+│       │   └── user/                     # 8 user screens
+│       ├── components/{admin,user,shared,ui,dashboard,auth}
+│       ├── services/                     # Typed API client per domain
+│       ├── store/                        # Redux Toolkit + RTK Query
+│       ├── contexts/                     # React contexts
+│       └── hooks/                        # Custom hooks
+├── infrastructure/
+│   ├── nginx/                            # Reverse proxy config
+│   └── systemd/                          # Service unit files
+├── render.yaml                           # Render.com deployment
+└── deploy.sh                             # Deployment helper
 ```
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
-- Python 3.11+
-- Docker & Docker Compose
-- Supabase Account
+- Python 3.11+ (3.13.4 in production)
+- Redis (local or remote)
+- Supabase project
 
-### Environment Setup
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourorg/bigteam-platform.git
-cd bigteam-platform
-```
-
-2. **Backend Setup**
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-3. **Frontend Setup**
-```bash
-cd frontend
-npm install
-```
-
-4. **Environment Variables**
-
-Create `.env` files:
-
-**Backend `.env`:**
-```env
-FLASK_APP=app
-FLASK_ENV=development
-DATABASE_URL=postgresql://user:password@localhost:5432/bigteam
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-key
-JWT_SECRET_KEY=your-secret-key
-REDIS_URL=redis://localhost:6379
-UPLOAD_FOLDER=uploads
-MAX_CONTENT_LENGTH=100MB
-```
-
-**Frontend `.env`:**
-```env
-VITE_API_BASE_URL=http://localhost:5000
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### Database Schema
-
-```sql
--- Users table
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'user',
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Posts table
-CREATE TABLE posts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(200) NOT NULL,
-    content TEXT,
-    media_type VARCHAR(20) NOT NULL, -- 'video', 'image'
-    media_url VARCHAR(500) NOT NULL,
-    thumbnail_url VARCHAR(500),
-    created_by UUID REFERENCES users(id),
-    is_published BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Advertisements table
-CREATE TABLE advertisements (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(200) NOT NULL,
-    media_type VARCHAR(20) NOT NULL,
-    media_url VARCHAR(500) NOT NULL,
-    ad_type VARCHAR(20) NOT NULL, -- 'banner', 'in_stream'
-    is_active BOOLEAN DEFAULT true,
-    start_date TIMESTAMP,
-    end_date TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- MLM Chain table
-CREATE TABLE mlm_chain (
-    id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    position INT NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT NOW(),
-    deactivated_at TIMESTAMP
-);
-
--- Purchases table
-CREATE TABLE purchases (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    product_name VARCHAR(200) NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    purchase_type VARCHAR(20) NOT NULL, -- 'activation', 'reactivation'
-    status VARCHAR(20) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Commissions table
-CREATE TABLE commissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    receiver_id UUID REFERENCES users(id),
-    payer_id UUID REFERENCES users(id),
-    purchase_id UUID REFERENCES purchases(id),
-    amount DECIMAL(10, 2) NOT NULL,
-    commission_level INT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- MLM Settings table
-CREATE TABLE mlm_settings (
-    id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value VARCHAR(255) NOT NULL,
-    description TEXT,
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-## 🔧 Development
-
-### Running in Development Mode
-
-#### Option 1: Run Both Frontend and Backend with Single Command (Recommended)
+### One-Command Dev
 
 ```bash
-# From root directory
 npm run dev
 ```
 
-This will start both:
-- Backend on http://localhost:5000
-- Frontend on http://localhost:3000
+Starts:
+- Backend → http://localhost:8000
+- Frontend → http://localhost:3000
 
-#### Option 2: Run Separately
-
-1. **Start Backend**
-```bash
-cd backend
-python app.py
-# Backend runs on http://localhost:5000
-```
-
-2. **Start Frontend**
-```bash
-cd frontend
-npm run dev
-# Frontend runs on http://localhost:3000
-```
-
-3. **Start Redis Cache**
-```bash
-docker run -d -p 6379:6379 redis:alpine
-```
-
-### Additional Commands
+### First-Time Setup
 
 ```bash
-# Install all dependencies (root, frontend, backend)
+# 1. Install everything
 npm run install:all
 
-# Build frontend for production
-npm run build
+# 2. Backend .env
+cat > backend/.env <<EOF
+FLASK_ENV=development
+DB_URL=postgresql://...:6543/postgres   # Supabase pooler port
+DB_HOST=...
+DB_PORT=6543
+DB_NAME=postgres
+DB_USER=postgres.xxxxx
+DB_PASS=...
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_KEY=eyJ...
+JWT_SECRET_KEY=<generate-with-openssl-rand>
+REDIS_URL=redis://localhost:6379
+FRONTEND_URL=http://localhost:3000
+DB_POOL_MIN=2
+DB_POOL_MAX=10
+EOF
 
-# Run frontend linting
+# 3. Frontend .env
+cat > frontend/.env <<EOF
+VITE_API_BASE_URL=http://localhost:8000
+EOF
+
+# 4. Local Redis (if not using cloud)
+docker run -d -p 6379:6379 redis:alpine
+
+# 5. Run migrations
+cd backend && python run_migration.py
+```
+
+---
+
+## 📡 API Surface
+
+| Domain | Base path | Purpose |
+|---|---|---|
+| Auth | `/auth/*` | JWT login, logout, refresh |
+| Users | `/api/user/*` | Profile, dashboard stats |
+| Team | `/api/team/*` | MLM tree, purchase, downline |
+| Packages | `/api/packages/*` | List + manage activation packages |
+| Posts | `/api/posts/*` | Media feed, interactions |
+| Ads | `/api/ads/*` | Advertisement scheduling |
+| Activation History | `/api/activation-history/*` | Lifetime timeline + stats |
+| **Activation Requests** | `/api/activation-requests/*` | **Admin-gated reactivation** |
+| Meetings | `/api/meetings/*` | Meeting management |
+
+### Activation Request Endpoints (the workflow gate)
+
+```
+POST  /api/activation-requests/submit               # User submits
+GET   /api/activation-requests/my-request           # User checks pending
+POST  /api/activation-requests/:id/cancel           # User cancels
+GET   /api/activation-requests/pending              # Admin lists
+GET   /api/activation-requests/pending-count        # Admin badge count
+POST  /api/activation-requests/:id/approve          # Admin approves → activates
+POST  /api/activation-requests/:id/reject           # Admin rejects with reason
+```
+
+---
+
+## 🔐 Security Posture
+
+| Concern | Mitigation | Where |
+|---|---|---|
+| Clickjacking | `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'` | [`backend/app.py`](backend/app.py) |
+| MIME sniffing | `X-Content-Type-Options: nosniff` | [`backend/app.py`](backend/app.py) |
+| XSS | CSP `default-src 'self'`, axios escaping, no raw HTML injection in components | global |
+| Brute-force auth | Flask-Limiter rate limits | [`backend/utils/rate_limiter.py`](backend/utils/rate_limiter.py) |
+| SQL injection | Parameterized queries / ORM only | services |
+| Logout-bypass under multi-worker | Redis-backed JWT blacklist | [`render.yaml`](render.yaml) |
+| Unbounded request body | `MAX_CONTENT_LENGTH = 16KB` for JSON | [`backend/app.py`](backend/app.py) |
+| HTTPS downgrade | HSTS preload (`max-age=31536000`) in production | [`backend/app.py`](backend/app.py) |
+| Feature abuse (camera/mic/geo) | `Permissions-Policy` blocks them all | [`backend/app.py`](backend/app.py) |
+| Race conditions on approval | Row-level locking + balance re-check at approval time | activation_request_service |
+| Wildcard CORS | Strict `FRONTEND_URL` allowlist in prod | [`backend/app.py`](backend/app.py) |
+
+---
+
+## 🎨 User States (Profile Status Card)
+
+The Profile page shows one of four cards depending on user state. This was added so users always know *exactly* what to do next.
+
+| State | Card | Button | Why |
+|---|---|---|---|
+| **Active** (0–1 commissions) | 🟢 Green — "Your Account is Active!" | None | Already earning |
+| **Inactive** (first-time or <2 commissions) | 🟠 Orange — "Account Inactive" | "Activate Now" → instant | No prior cycle, no approval needed |
+| **Needs Reactivation** (2/2, no pending request) | 🟣 Purple — "Ready to Reactivate!" | "Reactivate Now" → submits request | Hit cycle cap, must request |
+| **Request Pending** (2/2, has pending request) | 🟡 Yellow — "Reactivation Request Pending" | None (pulsing clock icon) | Waiting on admin |
+
+---
+
+## 🐳 Deployment (Render.com)
+
+Production config lives in [`render.yaml`](render.yaml). Key choices:
+
+```yaml
+startCommand: >
+  gunicorn --bind 0.0.0.0:$PORT
+    --workers 8 --threads 8                # 64 concurrent handlers
+    --timeout 60 --keep-alive 5
+    --max-requests 1000 --max-requests-jitter 50   # recycle to avoid leaks
+    --preload                              # faster startup + shared memory
+    app:app
+```
+
+- **8 workers × 8 threads** — fits Render's standard plan, ~300–500 req/sec sustained
+- **`--max-requests 1000`** — every worker recycles after 1000 requests, jitter prevents thundering herd
+- **`--preload`** — share read-only memory between workers, faster cold start
+- **Redis is provisioned alongside** — `bigteam-redis` (starter plan, 25MB)
+
+Health check: `GET /health` → `{"status": "healthy"}`
+
+---
+
+## 🧪 Testing & Quality Gates
+
+```bash
+# Type check (frontend)
+npm run typecheck
+
+# Lint (frontend)
 npm run lint:frontend
 
-# Run frontend type checking
-npm run typecheck
+# Backend smoke verification
+cd backend && python verify_system.py
+cd backend && python simple_verify.py
 ```
-
-### API Endpoints
-
-#### Authentication
-```
-POST /api/auth/login          # User login
-POST /api/auth/logout         # User logout
-POST /api/auth/refresh        # Refresh JWT token
-```
-
-#### Admin Endpoints
-```
-POST /api/admin/users         # Create new user
-GET  /api/admin/users         # List all users
-PUT  /api/admin/users/:id     # Update user
-DELETE /api/admin/users/:id   # Delete user
-
-POST /api/admin/posts         # Create post
-GET  /api/admin/posts         # List all posts
-PUT  /api/admin/posts/:id     # Update post
-DELETE /api/admin/posts/:id   # Delete post
-
-POST /api/admin/ads           # Create advertisement
-GET  /api/admin/ads           # List all ads
-PUT  /api/admin/ads/:id       # Update ad
-```
-
-#### User Endpoints
-```
-GET  /api/posts               # Get feed posts
-GET  /api/posts/:id           # Get specific post
-POST /api/posts/:id/interact  # Like/share post
-GET  /api/user/profile        # Get user profile
-PUT  /api/user/profile        # Update profile
-```
-
-## 🐳 Docker Deployment
-
-### Development with Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_BASE_URL=http://backend:5000
-  
-  backend:
-    build: ./backend
-    ports:
-      - "5000:5000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/bigteam
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
-  
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: bigteam
-      POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-  
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-
-volumes:
-  postgres_data:
-```
-
-Run with:
-```bash
-docker-compose up -d
-```
-
-## ☸️ Kubernetes Deployment
-
-### Namespace and ConfigMap
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: bigteam
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: bigteam
-data:
-  DATABASE_URL: "postgresql://user:pass@postgres:5432/bigteam"
-  REDIS_URL: "redis://redis:6379"
-```
-
-### Backend Deployment
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: backend
-  namespace: bigteam
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: backend
-  template:
-    metadata:
-      labels:
-        app: backend
-    spec:
-      containers:
-      - name: backend
-        image: bigteam/backend:latest
-        ports:
-        - containerPort: 5000
-        envFrom:
-        - configMapRef:
-            name: app-config
-```
-
-### Frontend Deployment
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: frontend
-  namespace: bigteam
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-    spec:
-      containers:
-      - name: frontend
-        image: bigteam/frontend:latest
-        ports:
-        - containerPort: 3000
-```
-
-Deploy to Kubernetes:
-```bash
-kubectl apply -f infrastructure/kubernetes/
-```
-
-## 📊 Monitoring & Analytics
-
-### Performance Metrics
-- **Response Time**: API endpoint performance
-- **User Engagement**: Likes, shares, view duration
-- **System Health**: CPU, memory, disk usage
-- **Content Analytics**: Popular posts, user activity patterns
-
-### Caching Strategy
-- **Redis Cache**: Session data, frequently accessed posts
-- **CDN**: Static assets, media files
-- **Database Query Optimization**: Indexing, query caching
-
-## 🔐 Security Features
-
-- **JWT Authentication**: Secure token-based auth
-- **Role-Based Access Control**: Admin vs User permissions
-- **Input Validation**: SQL injection prevention
-- **File Upload Security**: Type validation, size limits
-- **CORS Configuration**: Cross-origin request handling
-- **Rate Limiting**: API abuse prevention
-
-## 📈 Scalability Considerations
-
-- **Horizontal Scaling**: Multiple backend instances
-- **Database Optimization**: Connection pooling, read replicas
-- **Media Optimization**: Video transcoding, image compression
-- **Cache Layers**: Redis for session and data caching
-- **Load Balancing**: NGINX for traffic distribution
-
-## 🧪 Testing
-
-### Backend Testing
-```bash
-cd backend
-pytest tests/
-```
-
-### Frontend Testing
-```bash
-cd frontend
-npm test
-```
-
-### E2E Testing
-```bash
-npm run test:e2e
-```
-
-## 📦 Production Deployment
-
-1. **Build Images**
-```bash
-docker build -t bigteam/backend:v1.0 ./backend
-docker build -t bigteam/frontend:v1.0 ./frontend
-```
-
-2. **Deploy to Kubernetes**
-```bash
-kubectl apply -f infrastructure/kubernetes/production/
-```
-
-3. **Configure Domain & SSL**
-```bash
-kubectl apply -f infrastructure/kubernetes/ingress.yaml
-```
-
-## 📋 Development Roadmap
-
-### Phase 1 (Current)
-- ✅ User authentication system
-- ✅ Admin panel for user management
-- ✅ Content upload and management
-- ✅ Basic user feed with interactions
-- ✅ Advertisement system
-
-### Phase 2 (Future)
-- 🔄 Advanced analytics dashboard
-- 🔄 Real-time notifications
-- 🔄 Mobile app (React Native)
-- 🔄 Advanced content recommendation
-- 🔄 Multi-language support
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-For support and questions:
-- Email: support@bigteam.com
-- Documentation: [docs.bigteam.com](https://docs.bigteam.com)
-- Issues: GitHub Issues tab
 
 ---
 
-**BigTeam Platform** - Building communities through engaging content experiences.
+## 📈 What's Next
+
+- [ ] Email notifications for approve/reject events
+- [ ] User-visible rejection reason on profile
+- [ ] Cancel-pending-request from UI (backend exists)
+- [ ] Pending count badge in admin nav
+- [ ] PDF export of activation history
+
+---
+
+## 📚 Related Docs
+
+- [`ADMIN_APPROVAL_IMPLEMENTATION.md`](ADMIN_APPROVAL_IMPLEMENTATION.md) — full implementation report for the approval workflow
+- [`BUGS_FIXED.md`](BUGS_FIXED.md) — Profile loop + route signature fixes
+- [`DEEP_VERIFICATION_REPORT.md`](DEEP_VERIFICATION_REPORT.md) — component/integration audit
+- [`backend/ACTIVATION_HISTORY_README.md`](backend/ACTIVATION_HISTORY_README.md) — JSONB history schema
+- [`UI_LOCATION_GUIDE.md`](UI_LOCATION_GUIDE.md) — where features live in the UI
+
+---
+
+**BigTreat** — built around the principle that *every system in this repo exists because something specific broke or was at risk*. Read the section that matches your concern.
